@@ -380,7 +380,7 @@ static int load_defaults(git_repository *repo, struct options *opts)
 {
 	git_buf buffer = GIT_BUF_INIT_CONST(NULL, 0);
 	git_config *cfg = NULL, *repo_cfg = NULL;
-	int error;
+	int val, error;
 
 	opts->revision  = "HEAD";
 	opts->reverse   = true;
@@ -407,6 +407,10 @@ static int load_defaults(git_repository *repo, struct options *opts)
 	error = git_config_get_path(&buffer, repo_cfg, "fixes.file");
 	if (!error)
 		opts->fixes_file = buffer.ptr;
+
+	error = git_config_get_bool(&val, repo_cfg, "fixes.all");
+	if (!error)
+		opts->all = val ? true : false;
 
 	git_buf_free(&buffer);
 
