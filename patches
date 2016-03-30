@@ -1,0 +1,99 @@
+#!/usr/bin/env python
+#
+
+import getopt
+import string
+import sys
+import os
+
+def is_git_commit(token):
+	if (len(token) != 40):
+		return False;
+	for c in token:
+		f = string.find(string.hexdigits, c);
+		if f == -1:
+			return False;
+
+	return True;
+
+def find_committer(line):
+	domains = set(['suse.de', 'suse.cz', 'suse.com', 'novell.com']);
+	tokens = line.split(' ');
+	for item in tokens:
+		item = item.strip(' <>\t\n\r');
+		pos = item.find('@');
+		if (pos == -1):
+			continue;
+		account, domain = item.split('@', 1);
+		if (domain in domains):
+			return item;
+
+	return '';
+
+def parse_patch_file(file_name):
+	fd = open(file_name, 'r');
+	temp_list = list();
+	committer = 'Unknown';
+	for line in fd:
+		parts = line.split(':');
+		if (len(parts) < 2):
+			continue;
+		token = parts.pop(0);
+		token = token.upper();
+		if (token == 'GIT-COMMIT'):
+			for token in parts:
+				token = token.strip();
+				if is_git_commit(token):
+					temp_list.append(token);
+					break;
+		if (token == 'SIGNED-OFF-BY' or token == 'ACKED-BY'):
+			email = find_committer(parts.pop(0));
+			if (len(email) > 0):
+				committer = email;
+				continue;
+
+	fd.close();
+
+	ret = list();
+	for item in temp_list:
+		print item + str(",") + committer;
+
+	return ret;
+
+def do_commit_series(argv):
+	if (len(argv) < 1):
+		series_file = "series.conf";
+	else:
+		series_file = argv.pop(0);
+
+	fd = open(series_file, 'r');
+	patch_files = list();
+
+	for line in fd:
+		line = line.strip();
+		if (len(line) == 0 or line[0] == '#'):
+			continue;
+		parts = line.split(' ');
+		for part in parts:
+			if os.path.isfile(part):
+				patch_files.append(part);
+				break;
+
+	fd.close();
+
+	for patch in patch_files:
+		parse_patch_file(patch);
+
+	return 0;
+
+def main():
+	sys.argv.pop(0)
+
+	return do_commit_series(sys.argv);
+
+if __name__ == '__main__':
+	ret = main()
+	if (ret > 255):
+		ret = 1
+	sys.exit(ret)
+
