@@ -410,6 +410,7 @@ static int load_defaults(git_repository *repo, struct options *opts)
 
 	git_buf_free(&buffer);
 
+	error = 0;
 out:
 
 	git_config_free(cfg);
