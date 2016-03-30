@@ -338,6 +338,7 @@ out_free:
 
 static int fixes(git_repository *repo, struct options *opts)
 {
+	int sorting = GIT_SORT_TIME;
 	int match = 0, count = 0;
 	git_revwalk *walker;
 	git_oid oid;
@@ -347,7 +348,10 @@ static int fixes(git_repository *repo, struct options *opts)
 	if (err < 0)
 		return err;
 
-	git_revwalk_sorting(walker, GIT_SORT_TIME | GIT_SORT_REVERSE);
+	if (opts->reverse)
+		sorting |= GIT_SORT_REVERSE;
+
+	git_revwalk_sorting(walker, sorting);
 
 	while (!git_revwalk_next(&oid, walker)) {
 		count += 1;
