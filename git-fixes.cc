@@ -118,7 +118,87 @@ string fix_revision(string rev)
 	return rev;
 }
 
+static int match_parent_tree(git_commit *commit, size_t p,
+			     git_diff_options *diffopts)
+{
+	git_commit *parent;
+	git_tree *a, *b;
+	git_diff *diff;
+	int err;
+
+	err = git_commit_parent(&parent, commit, p);
+	if (err)
+		return err;
+
+	err = git_commit_tree(&a, parent);
+	if (err)
+		goto out_free_parent;
+
+	err = git_commit_tree(&b, commit);
+	if (err)
+		goto out_free_a;
+
+	err = git_diff_tree_to_tree(&diff, git_commit_owner(commit), a, b, diffopts);
+	if (err < 0)
+		goto out_free_b;
+
+	err = git_diff_num_deltas(diff) > 0 ? 1 : 0;
+
+	git_diff_free(diff);
+out_free_b:
+	git_tree_free(b);
+out_free_a:
+	git_tree_free(a);
+out_free_parent:
+	git_commit_free(parent);
+
+	return err;
+}
+
+static bool match_tree(git_commit *commit, git_diff_options *diffopts)
+{
+	git_pathspec *ps = NULL;
+	unsigned int parents;
+	bool ret = false;
+	int err;
+
+	if (diffopts->pathspec.count <= 0)
+		return true;
+
+	parents = git_commit_parentcount(commit);
+
+	if (parents == 0) {
+		git_tree *tree;
+
+		err = git_pathspec_new(&ps, &diffopts->pathspec);
+		if (err < 0)
+			return false;
+		err = git_commit_tree(&tree, commit);
+		if (err < 0)
+			return false;
+
+		err = git_pathspec_match_tree(NULL, tree, GIT_PATHSPEC_NO_MATCH_ERROR, ps);
+		if (!err)
+			ret = true;
+
+		git_tree_free(tree);
+		git_pathspec_free(ps);
+	} else if (parents == 1) {
+		ret = match_parent_tree(commit, 0, diffopts) > 0;
+	} else {
+		for (unsigned i = 0; i < parents; ++i) {
+			if (match_parent_tree(commit, i, diffopts) > 0) {
+				ret = true;
+				break;
+			}
+		}
+	}
+
+	return ret;
+}
+
 static bool match_commit(const struct commit &c, const string &id,
+			 git_commit *commit, git_diff_options *diffopts,
 			 struct options *opts)
 {
 	vector<struct match_info>::const_iterator it;
@@ -143,7 +223,8 @@ static bool match_commit(const struct commit &c, const string &id,
 		return false;
 	}
 
-	ret = (it->commit_id == info.commit_id);
+	ret = (it->commit_id == info.commit_id) &&
+	       match_tree(commit, diffopts);
 
 	if (ret) {
 		string key = opts->no_group ? "default" : it->committer;
@@ -205,7 +286,8 @@ static void parse_commit_msg(struct commit &commit, const char *msg)
 		parse_line(*it, commit.refs);
 }
 
-static int handle_commit(git_commit *commit, git_repository *repo, struct options *opts)
+static int handle_commit(git_commit *commit, git_repository *repo,
+			 git_diff_options *diffopts, struct options *opts)
 {
 	const git_oid *oid;
 	char commit_id[41];
@@ -239,7 +321,7 @@ static int handle_commit(git_commit *commit, git_repository *repo, struct option
 			if (!opts->match_all && !it->fixes)
 				continue;
 
-			if (match_commit(c, id, opts)) {
+			if (match_commit(c, id, commit, diffopts, opts)) {
 				error = 1;
 				break;
 			}
@@ -360,8 +442,45 @@ out_free:
 	return err;
 }
 
+static void destroy_diffopts(git_diff_options *diffopts)
+{
+	if (!diffopts->pathspec.strings)
+		return;
+
+	for (unsigned i = 0; i < diffopts->pathspec.count; ++i)
+		free(diffopts->pathspec.strings[i]);
+
+	free(diffopts->pathspec.strings);
+
+	diffopts->pathspec.count = 0;
+}
+
+static bool init_diffopts(git_diff_options *diffopts, struct options *opts)
+{
+	unsigned count = opts->path.size();
+
+	if (count) {
+		diffopts->pathspec.strings = (char **)malloc(count * sizeof(char*));
+		if (!diffopts->pathspec.strings)
+			return false;
+
+		for (unsigned i = 0; i < count; ++i) {
+			diffopts->pathspec.strings[i] = strdup(opts->path[i].c_str());
+			if (!diffopts->pathspec.strings[i]) {
+				destroy_diffopts(diffopts);
+				return false;
+			}
+		}
+	}
+
+	diffopts->pathspec.count = count;
+
+	return true;
+}
+
 static int fixes(git_repository *repo, struct options *opts)
 {
+	git_diff_options diffopts = GIT_DIFF_OPTIONS_INIT;
 	int sorting = GIT_SORT_TIME;
 	int match = 0, count = 0;
 	git_revwalk *walker;
@@ -381,6 +500,10 @@ static int fixes(git_repository *repo, struct options *opts)
 
 	git_revwalk_sorting(walker, sorting);
 
+	err = -1;
+	if (!init_diffopts(&diffopts, opts))
+		goto error;
+
 	while (!git_revwalk_next(&oid, walker)) {
 		count += 1;
 
@@ -388,7 +511,7 @@ static int fixes(git_repository *repo, struct options *opts)
 		if (err < 0)
 			goto error;
 
-		err = handle_commit(commit, repo, opts);
+		err = handle_commit(commit, repo, &diffopts, opts);
 		if (err < 0) {
 			git_commit_free(commit);
 			goto error;
@@ -398,6 +521,7 @@ static int fixes(git_repository *repo, struct options *opts)
 		match += err;
 	}
 
+	destroy_diffopts(&diffopts);
 	git_revwalk_free(walker);
 
 	print_results(opts);
@@ -408,6 +532,7 @@ static int fixes(git_repository *repo, struct options *opts)
 	return 0;
 
 error:
+	destroy_diffopts(&diffopts);
 	git_revwalk_free(walker);
 
 	return err;
