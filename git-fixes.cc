@@ -520,7 +520,8 @@ int main(int argc, char **argv)
 	if (!parse_options(&opts, argc, argv))
 		goto out;
 
-	load_commit_file(opts.fixes_file.c_str(), match_list);
+	if (!load_commit_file(opts.fixes_file.c_str(), match_list))
+		goto out;
 
 	error = fixes(repo, &opts);
 	if (error < 0)
