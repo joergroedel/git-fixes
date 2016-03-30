@@ -104,6 +104,20 @@ static int split_trim(vector<string> &items, const char *delim,
 	return num;
 }
 
+string fix_revision(string rev)
+{
+	if (rev.length() < 2)
+		return rev;
+
+	if (rev.substr(0,2) == "..")
+		rev = "HEAD" + rev;
+
+	if (rev.substr(rev.length() - 2, 2) == "..")
+		rev = rev + "HEAD";
+
+	return rev;
+}
+
 static bool match_commit(const struct commit &c, const string &id,
 			 struct options *opts)
 {
@@ -341,10 +355,13 @@ static int fixes(git_repository *repo, struct options *opts)
 	int sorting = GIT_SORT_TIME;
 	int match = 0, count = 0;
 	git_revwalk *walker;
+	string revision;
 	git_oid oid;
 	int err;
 
-	err = revwalk_init(&walker, repo, opts->revision.c_str());
+	revision = fix_revision(opts->revision);
+
+	err = revwalk_init(&walker, repo, revision.c_str());
 	if (err < 0)
 		return err;
 
