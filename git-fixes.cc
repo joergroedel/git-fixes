@@ -417,6 +417,7 @@ out:
 
 enum {
 	OPTION_ALL,
+	OPTION_ME,
 	OPTION_REVERSE,
 	OPTION_COMMITTER,
 	OPTION_GROUPING,
@@ -428,6 +429,7 @@ enum {
 
 static struct option options[] = {
 	{ "all",		no_argument,		0, OPTION_ALL         },
+	{ "me",			no_argument,		0, OPTION_ME          },
 	{ "reverse",		no_argument,		0, OPTION_REVERSE     },
 	{ "committer",		required_argument,	0, OPTION_COMMITTER   },
 	{ "grouping",		no_argument,		0, OPTION_GROUPING    },
@@ -453,6 +455,9 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 		case OPTION_ALL:
 		case 'a':
 			opts->all = true;
+			break;
+		case OPTION_ME:
+			opts->all = false;
 			break;
 		case OPTION_REVERSE:
 			opts->reverse = true;
