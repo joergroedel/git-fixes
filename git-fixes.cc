@@ -337,6 +337,21 @@ static int revwalk_init(git_revwalk **walker, git_repository *repo,
 		git_object_free(spec.from);
 	} else if (spec.flags & GIT_REVPARSE_RANGE) {
 		git_revwalk_push(*walker, git_object_id(spec.to));
+
+		if (spec.flags & GIT_REVPARSE_MERGE_BASE) {
+			git_oid base;
+			err = git_merge_base(&base, repo,
+					     git_object_id(spec.from),
+					     git_object_id(spec.to));
+			if (err) {
+				git_object_free(spec.to);
+				git_object_free(spec.from);
+				goto out_free;
+			}
+
+			git_revwalk_push(*walker, &base);
+		}
+
 		git_revwalk_hide(*walker, git_object_id(spec.from));
 		git_object_free(spec.to);
 		git_object_free(spec.from);
