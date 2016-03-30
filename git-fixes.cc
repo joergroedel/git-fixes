@@ -385,7 +385,7 @@ static int load_defaults(git_repository *repo, struct options *opts)
 	opts->revision  = "HEAD";
 	opts->reverse   = true;
 	opts->match_all = false;
-	opts->all       = false;
+	opts->all       = true;
 	opts->no_group  = false;
 	opts->stats	= false;
 
@@ -464,6 +464,7 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 		case OPTION_COMMITTER:
 		case 'c':
 			opts->committer = optarg;
+			opts->all = false;
 			break;
 		case OPTION_GROUPING:
 			opts->no_group = false;
