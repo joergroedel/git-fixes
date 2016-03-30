@@ -517,7 +517,7 @@ int main(int argc, char **argv)
 
 	error = 1;
 	if (!parse_options(&opts, argc, argv))
-		goto error;
+		goto out;
 
 	load_commit_file(opts.fixes_file.c_str(), match_list);
 
