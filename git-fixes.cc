@@ -484,7 +484,6 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 			opts->stats = true;
 			break;
 		default:
-			fprintf(stderr, "Unknown option: %o\n", c);
 			return false;
 		}
 	}
