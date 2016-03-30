@@ -205,17 +205,15 @@ static void parse_commit_msg(struct commit &commit, const char *msg)
 		parse_line(*it, commit.refs);
 }
 
-static int handle_commit(git_oid *oid, git_repository *repo, struct options *opts)
+static int handle_commit(git_commit *commit, git_repository *repo, struct options *opts)
 {
+	const git_oid *oid;
 	char commit_id[41];
 	struct commit c;
-	git_commit *commit;
 	const char *msg;
 	int error;
 
-	error = git_commit_lookup(&commit, repo, oid);
-	if (error < 0)
-		goto out;
+	oid = git_commit_id(commit);
 
 	git_oid_fmt(commit_id, oid);
 	commit_id[40] = 0;
@@ -247,9 +245,6 @@ static int handle_commit(git_oid *oid, git_repository *repo, struct options *opt
 			}
 		}
 	}
-
-out:
-	git_commit_free(commit);
 
 	return error;
 }
@@ -370,6 +365,7 @@ static int fixes(git_repository *repo, struct options *opts)
 	int sorting = GIT_SORT_TIME;
 	int match = 0, count = 0;
 	git_revwalk *walker;
+	git_commit *commit;
 	string revision;
 	git_oid oid;
 	int err;
@@ -387,9 +383,18 @@ static int fixes(git_repository *repo, struct options *opts)
 
 	while (!git_revwalk_next(&oid, walker)) {
 		count += 1;
-		err = handle_commit(&oid, repo, opts);
+
+		err = git_commit_lookup(&commit, repo, &oid);
 		if (err < 0)
 			goto error;
+
+		err = handle_commit(commit, repo, opts);
+		if (err < 0) {
+			git_commit_free(commit);
+			goto error;
+		}
+
+		git_commit_free(commit);
 		match += err;
 	}
 
