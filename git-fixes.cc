@@ -379,7 +379,7 @@ error:
 static int load_defaults(git_repository *repo, struct options *opts)
 {
 	git_buf buffer = GIT_BUF_INIT_CONST(NULL, 0);
-	git_config *cfg = NULL, *repo_cfg = NULL;
+	git_config *repo_cfg = NULL;
 	int val, error;
 
 	opts->revision  = "HEAD";
@@ -389,17 +389,11 @@ static int load_defaults(git_repository *repo, struct options *opts)
 	opts->no_group  = false;
 	opts->stats	= false;
 
-	error = git_config_open_default(&cfg);
-	if (error < 0)
-		goto out;
-
 	error = git_repository_config(&repo_cfg, repo);
 	if (error < 0)
 		goto out;
 
 	error = git_config_get_string_buf(&buffer, repo_cfg, "user.email");
-	if (error < 0)
-		error = git_config_get_string_buf(&buffer, cfg, "user.email");
 
 	if (!error)
 		opts->committer = buffer.ptr;
@@ -416,8 +410,6 @@ static int load_defaults(git_repository *repo, struct options *opts)
 
 	error = 0;
 out:
-
-	git_config_free(cfg);
 	git_config_free(repo_cfg);
 
 	return error;
