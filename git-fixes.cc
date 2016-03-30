@@ -17,6 +17,7 @@ struct options {
 	string revision;
 	string committer;
 	string fixes_file;
+	string db;
 	bool all;
 	bool match_all;
 	bool no_group;
@@ -586,6 +587,7 @@ enum {
 	OPTION_NO_GROUPING,
 	OPTION_MATCH_ALL,
 	OPTION_FILE,
+	OPTION_DATA_BASE,
 	OPTION_STATS,
 };
 
@@ -597,6 +599,7 @@ static struct option options[] = {
 	{ "grouping",		no_argument,		0, OPTION_GROUPING    },
 	{ "no-grouping",	no_argument,		0, OPTION_NO_GROUPING },
 	{ "match-all",		no_argument,		0, OPTION_MATCH_ALL   },
+	{ "data-base",		required_argument,	0, OPTION_DATA_BASE   },
 	{ "file",		required_argument,	0, OPTION_FILE        },
 	{ "stats",		no_argument,		0, OPTION_STATS       },
 	{ 0,			0,			0, 0                  }
@@ -609,7 +612,7 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 	while (true) {
 		int opt_idx;
 
-		c = getopt_long(argc, argv, "ac:f:ms", options, &opt_idx);
+		c = getopt_long(argc, argv, "ac:f:d:ms", options, &opt_idx);
 		if (c == -1)
 			break;
 
@@ -643,6 +646,10 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 		case 'f':
 			opts->fixes_file = optarg;
 			break;
+		case OPTION_DATA_BASE:
+		case 'd':
+			opts->db = optarg;
+			break;
 		case OPTION_STATS:
 		case 's':
 			opts->stats = true;
@@ -661,11 +668,42 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 	return true;
 }
 
+static int db_file(string &filename, git_repository *repo, struct options *opts)
+{
+	if (opts->db.length() > 0) {
+		git_buf buffer = GIT_BUF_INIT_CONST(NULL, 0);
+		git_config *repo_cfg = NULL;
+		string key;
+		int error;
+
+		key = "fixes." + opts->db + ".file";
+
+		error = git_repository_config(&repo_cfg, repo);
+		if (error < 0)
+			return error;
+
+		error = git_config_get_path(&buffer, repo_cfg, key.c_str());
+
+		if (!error)
+			filename = buffer.ptr;
+
+		git_buf_free(&buffer);
+		git_config_free(repo_cfg);
+
+		return error;
+	} else {
+		filename = opts->fixes_file;
+	}
+
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	git_repository *repo = NULL;
 	struct options opts;
 	const git_error *e;
+	string filename;
 	int error;
 
 	git_libgit2_init();
@@ -682,7 +720,11 @@ int main(int argc, char **argv)
 	if (!parse_options(&opts, argc, argv))
 		goto out;
 
-	if (!load_commit_file(opts.fixes_file.c_str(), match_list))
+	error = db_file(filename, repo, &opts);
+	if (error)
+		goto error;
+
+	if (!load_commit_file(filename.c_str(), match_list))
 		goto out;
 
 	error = fixes(repo, &opts);
