@@ -5,6 +5,7 @@
 #include <vector>
 #include <map>
 
+#include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <string.h>
@@ -561,9 +562,40 @@ error:
 	return err;
 }
 
+static string config_get_string_nofail(git_config *cfg, const char *name)
+{
+	git_config_entry *entry;
+	string ret;
+
+	if (git_config_get_entry(&entry, cfg, name))
+		return ret;
+
+	ret = entry->value;
+
+	git_config_entry_free(entry);
+
+	return ret;
+}
+
+static string config_get_path_nofail(git_config *cfg, const char *name)
+{
+	string path;
+	int len;
+
+	path = config_get_string_nofail(cfg, name);
+	len  = path.length();
+
+	if (!len || path[0] != '~')
+		return path;
+
+	if (len > 1 && path[1] != '/')
+		return path;
+
+	return string(getenv("HOME")) + path.substr(1);
+}
+
 static int load_defaults(git_repository *repo, struct options *opts)
 {
-	git_buf buffer = GIT_BUF_INIT_CONST(NULL, 0);
 	git_config *repo_cfg = NULL;
 	int val, error;
 
@@ -580,20 +612,12 @@ static int load_defaults(git_repository *repo, struct options *opts)
 	if (error < 0)
 		goto out;
 
-	error = git_config_get_string_buf(&buffer, repo_cfg, "user.email");
-
-	if (!error)
-		opts->committer = buffer.ptr;
-
-	error = git_config_get_path(&buffer, repo_cfg, "fixes.file");
-	if (!error)
-		opts->fixes_file = buffer.ptr;
+	opts->committer  = config_get_string_nofail(repo_cfg, "user.email");
+	opts->fixes_file = config_get_path_nofail(repo_cfg, "fixes.file");
 
 	error = git_config_get_bool(&val, repo_cfg, "fixes.all");
 	if (!error)
 		opts->all = val ? true : false;
-
-	git_buf_free(&buffer);
 
 	error = 0;
 out:
@@ -734,7 +758,6 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 static int db_file(string &filename, git_repository *repo, struct options *opts)
 {
 	if (opts->db.length() > 0) {
-		git_buf buffer = GIT_BUF_INIT_CONST(NULL, 0);
 		git_config *repo_cfg = NULL;
 		string key;
 		int error;
@@ -745,15 +768,9 @@ static int db_file(string &filename, git_repository *repo, struct options *opts)
 		if (error < 0)
 			return error;
 
-		error = git_config_get_path(&buffer, repo_cfg, key.c_str());
+		filename = config_get_path_nofail(repo_cfg, key.c_str());
 
-		if (!error)
-			filename = buffer.ptr;
-
-		git_buf_free(&buffer);
 		git_config_free(repo_cfg);
-
-		return error;
 	} else {
 		filename = opts->fixes_file;
 	}
