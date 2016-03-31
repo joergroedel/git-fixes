@@ -708,7 +708,7 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 	while (true) {
 		int opt_idx;
 
-		c = getopt_long(argc, argv, "ac:f:d:ms", options, &opt_idx);
+		c = getopt_long(argc, argv, "hac:f:d:ms", options, &opt_idx);
 		if (c == -1)
 			break;
 
