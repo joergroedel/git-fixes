@@ -23,13 +23,18 @@ struct options {
 	bool no_group;
 	bool stats;
 	bool reverse;
+	bool stable;
+	bool no_stable;
 	vector<string> path;
 };
 
 struct commit {
 	string subject;
 	string id;
+	bool stable;
 	vector<struct reference> refs;
+
+	commit() : stable(false) { };
 };
 
 struct reference {
@@ -206,6 +211,10 @@ static bool match_commit(const struct commit &c, const string &id,
 	struct match_info info;
 	bool ret;
 
+	if ((!opts->stable    &&  c.stable) ||
+	    (!opts->no_stable && !c.stable))
+		return false;
+
 	/* First check if the commit is already in the tree */
 	info.commit_id = to_lower(c.id);
 	it = lower_bound(match_list.begin(), match_list.end(), info);
@@ -283,8 +292,12 @@ static void parse_commit_msg(struct commit &commit, const char *msg)
 
 	commit.subject = lines[0];
 
-	for (it = lines.begin(); it != lines.end(); ++it)
+	for (it = lines.begin(); it != lines.end(); ++it) {
+		if (it->find("stable@kernel.org")      != string::npos ||
+		    it->find("stable@vger.kernel.org") != string::npos)
+			commit.stable = true;
 		parse_line(*it, commit.refs);
+	}
 }
 
 static int handle_commit(git_commit *commit, git_repository *repo,
@@ -560,6 +573,8 @@ static int load_defaults(git_repository *repo, struct options *opts)
 	opts->all       = true;
 	opts->no_group  = false;
 	opts->stats	= false;
+	opts->stable    = true;
+	opts->no_stable = true;
 
 	error = git_repository_config(&repo_cfg, repo);
 	if (error < 0)
@@ -595,6 +610,8 @@ enum {
 	OPTION_COMMITTER,
 	OPTION_GROUPING,
 	OPTION_NO_GROUPING,
+	OPTION_STABLE,
+	OPTION_NO_STABLE,
 	OPTION_MATCH_ALL,
 	OPTION_FILE,
 	OPTION_DATA_BASE,
@@ -609,6 +626,8 @@ static struct option options[] = {
 	{ "committer",		required_argument,	0, OPTION_COMMITTER   },
 	{ "grouping",		no_argument,		0, OPTION_GROUPING    },
 	{ "no-grouping",	no_argument,		0, OPTION_NO_GROUPING },
+	{ "stable",		no_argument,		0, OPTION_STABLE      },
+	{ "no-stable",		no_argument,		0, OPTION_NO_STABLE   },
 	{ "match-all",		no_argument,		0, OPTION_MATCH_ALL   },
 	{ "data-base",		required_argument,	0, OPTION_DATA_BASE   },
 	{ "file",		required_argument,	0, OPTION_FILE        },
@@ -627,6 +646,8 @@ static void usage(const char *prg)
 	printf("  --committer, -c  Show only fixes for a given committer\n");
 	printf("  --grouping       Group fixes by committer (default)\n");
 	printf("  --no-grouping    Don't group fixes by committer\n");
+	printf("  --stable         Show only commits with a stable-tag\n");
+	printf("  --no-stable      Show only commits with no stable-tag\n");
 	printf("  --match-all, -m  Match against everything that looks like git commit-id\n");
 	printf("  --data-base, -d  Select specific data-base (set file with fixes.<db>.file)\n");
 	printf("  --file, -f       Read commit-list from file\n");
@@ -670,6 +691,14 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 			break;
 		case OPTION_NO_GROUPING:
 			opts->no_group = true;
+			break;
+		case OPTION_STABLE:
+			opts->stable    = true;
+			opts->no_stable = false;
+			break;
+		case OPTION_NO_STABLE:
+			opts->stable    = false;
+			opts->no_stable = true;
 			break;
 		case OPTION_MATCH_ALL:
 		case 'm':
