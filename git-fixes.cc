@@ -12,6 +12,10 @@
 #include <stdio.h>
 #include <git2.h>
 
+#if LIBGIT2_VER_MAJOR == 0 && LIBGIT2_VER_MINOR < 22
+#error "libgit2 with version of at least 0.22 required. Try 'make BUILD_LIBGIT2=1'"
+#endif
+
 using namespace std;
 
 struct options {
