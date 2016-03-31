@@ -382,12 +382,16 @@ static bool load_commit_file(const char *filename, vector<struct match_info> &co
 	istream *in;
 	string line;
 
-	if (strcmp(filename, "-") == 0) {
+	if (strcmp(filename, "") == 0) {
+		printf("No file given to load commit-list from.\n");
+		printf("Either use the -f option or set the fixes.file config variable in git.\n");
+		return false;
+	} else if (strcmp(filename, "-") == 0) {
 		in = &cin;
 	} else {
 		file.open(filename);
 		if (!file.is_open()) {
-			printf("Can't open %s\n", filename);
+			printf("Can't open file '%s'\n", filename);
 			return false;
 		}
 
