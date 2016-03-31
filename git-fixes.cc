@@ -256,7 +256,7 @@ static void parse_line(const string &line, vector<struct reference> &commits)
 		if (found_commit && hex)
 			commit.id += *c;
 
-		if (found_commit && isblank(*c)) {
+		if (found_commit && (isblank(*c) || (c + 1) == line.end())) {
 			int len = commit.id.length();
 
 			if (len >= 8 && len <= 40)
