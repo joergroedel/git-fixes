@@ -243,7 +243,7 @@ static void parse_line(const string &line, vector<struct reference> &commits)
 	struct reference commit;
 	int last_c = -1;
 
-	if (line.length() >= 6 && line.substr(0,6) == "Fixes:")
+	if (line.length() >= 6 && to_lower(line.substr(0,6)) == "fixes:")
 		commit.fixes = true;
 
 	for (c = line.begin(); c != line.end(); last_c = *c, ++c) {
