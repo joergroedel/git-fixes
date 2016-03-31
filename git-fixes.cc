@@ -13,7 +13,7 @@
 #include <git2.h>
 
 #if LIBGIT2_VER_MAJOR == 0 && LIBGIT2_VER_MINOR < 22
-#error "libgit2 with version of at least 0.22 required. Try 'make BUILD_LIBGIT2=1'"
+#error "libgit2 version 0.22.0 or newer is required. Try 'make BUILD_LIBGIT2=1'"
 #endif
 
 using namespace std;
@@ -695,7 +695,7 @@ static void usage(const char *prg)
 	printf("  --no-grouping    Don't group fixes by committer\n");
 	printf("  --stable         Show only commits with a stable-tag\n");
 	printf("  --no-stable      Show only commits with no stable-tag\n");
-	printf("  --match-all, -m  Match against everything that looks like git commit-id\n");
+	printf("  --match-all, -m  Match against everything that looks like a git commit-id\n");
 	printf("  --data-base, -d  Select specific data-base (set file with fixes.<db>.file)\n");
 	printf("  --file, -f       Read commit-list from file\n");
 	printf("  --stats, -s      Print some statistics at the end\n");
