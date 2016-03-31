@@ -562,6 +562,20 @@ error:
 	return err;
 }
 
+#if LIBGIT2_VER_MINOR < 23
+static string config_get_string_nofail(git_config *cfg, const char *name)
+{
+	const git_config_entry *entry;
+	string ret;
+
+	if (git_config_get_entry(&entry, cfg, name))
+		return ret;
+
+	ret = entry->value;
+
+	return ret;
+}
+#else
 static string config_get_string_nofail(git_config *cfg, const char *name)
 {
 	git_config_entry *entry;
@@ -576,6 +590,7 @@ static string config_get_string_nofail(git_config *cfg, const char *name)
 
 	return ret;
 }
+#endif
 
 static string config_get_path_nofail(git_config *cfg, const char *name)
 {
