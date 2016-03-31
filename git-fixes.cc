@@ -579,6 +579,7 @@ out:
 }
 
 enum {
+	OPTION_HELP,
 	OPTION_ALL,
 	OPTION_ME,
 	OPTION_REVERSE,
@@ -592,6 +593,7 @@ enum {
 };
 
 static struct option options[] = {
+	{ "help",		no_argument,		0, OPTION_HELP        },
 	{ "all",		no_argument,		0, OPTION_ALL         },
 	{ "me",			no_argument,		0, OPTION_ME          },
 	{ "reverse",		no_argument,		0, OPTION_REVERSE     },
@@ -605,6 +607,23 @@ static struct option options[] = {
 	{ 0,			0,			0, 0                  }
 };
 
+static void usage(const char *prg)
+{
+	printf("Usage: %s [Options] [Revspec [Path...]]\n", prg);
+	printf("Options:\n");
+	printf("  --help, -h       Print this message end exit\n");
+	printf("  --all, -a        Show all potential fixes\n");
+	printf("  --me             Show only fixes for patches I committed\n");
+	printf("  --reverse        Sort fixes in reverse order\n");
+	printf("  --committer, -c  Show only fixes for a given committer\n");
+	printf("  --grouping       Group fixes by committer (default)\n");
+	printf("  --no-grouping    Don't group fixes by committer\n");
+	printf("  --match-all, -m  Match against everything that looks like git commit-id\n");
+	printf("  --data-base, -d  Select specific data-base (set file with fixes.<db>.file)\n");
+	printf("  --file, -f       Read commit-list from file\n");
+	printf("  --stats, -s      Print some statistics at the end\n");
+}
+
 static bool parse_options(struct options *opts, int argc, char **argv)
 {
 	int c;
@@ -617,6 +636,11 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 			break;
 
 		switch (c) {
+		case OPTION_HELP:
+		case 'h':
+			usage(argv[0]);
+			exit(0);
+			break;
 		case OPTION_ALL:
 		case 'a':
 			opts->all = true;
@@ -655,6 +679,7 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 			opts->stats = true;
 			break;
 		default:
+			usage(argv[0]);
 			return false;
 		}
 	}
