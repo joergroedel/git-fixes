@@ -364,15 +364,23 @@ static void print_results(struct options *opts)
 
 static bool load_commit_file(const char *filename, vector<struct match_info> &commits)
 {
-	ifstream in(filename);
+	ifstream file;
+	istream *in;
 	string line;
 
-	if (!in.is_open()) {
-		printf("Can't open %s\n", filename);
-		return false;
+	if (strcmp(filename, "-") == 0) {
+		in = &cin;
+	} else {
+		file.open(filename);
+		if (!file.is_open()) {
+			printf("Can't open %s\n", filename);
+			return false;
+		}
+
+		in = &file;
 	}
 
-	while (getline(in, line)) {
+	while (getline(*in, line)) {
 		struct match_info info;
 		vector<string> tokens;
 		int num;
@@ -391,7 +399,8 @@ static bool load_commit_file(const char *filename, vector<struct match_info> &co
 
 	sort(commits.begin(), commits.end());
 
-	in.close();
+	if (file.is_open())
+		file.close();
 
 	return true;
 }
