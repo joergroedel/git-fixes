@@ -1,6 +1,8 @@
-OBJ=git-fixes.o
+OBJ_FIXES=git-fixes.o
+OBJ_SERIES=git-series.o
 CXXFLAGS=-O3 -Wall
-TARGET=git-fixes
+TARGET_FIXES=git-fixes
+TARGET_SERIES=git-series
 INSTALL_DIR ?= "${HOME}/bin/"
 LIBS=
 STATIC_LIBGIT2=build/libgit2.a
@@ -16,7 +18,12 @@ ifeq ($(DEBUG), 1)
   CXXFLAGS+=-g
 endif
 
-$(TARGET): $(OBJ)
+all: $(TARGET_FIXES) $(TARGET_SERIES)
+
+$(TARGET_FIXES): $(OBJ_FIXES)
+	g++ -o $@ $+ $(LIBGIT2) $(LIBS)
+
+$(TARGET_SERIES): $(OBJ_SERIES)
 	g++ -o $@ $+ $(LIBGIT2) $(LIBS)
 
 %.o: %.cc $(LIBGIT2)
@@ -28,11 +35,12 @@ $(STATIC_LIBGIT2):
 	mkdir -p build
 	(cd build;cmake -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DBUILD_CLAR=OFF ../libgit2;cmake --build .)
 
-install: $(TARGET)
-	install -b -D -m 755 $(TARGET) $(INSTALL_DIR)
+install: $(TARGET_FIXES) $(TARGET_SERIES)
+	install -b -D -m 755 $(TARGET_FIXES) $(INSTALL_DIR)
+	install -b -D -m 755 $(TARGET_SERIES) $(INSTALL_DIR)
 
 clean:
-	rm -f $(OBJ)
-	rm -f git-fixes
+	rm -f $(OBJ_FIXES)
+	rm -f $(TARGET_FIXES) $(TARGET_SERIES)
 	rm -rf build
 
