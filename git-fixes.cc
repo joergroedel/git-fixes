@@ -100,16 +100,17 @@ string trim(const string &line)
 static int split_trim(vector<string> &items, const char *delim,
 		      string buffer, unsigned splits)
 {
-	string item, delimiters;
 	unsigned num;
+	string item;
+	size_t pos;
 
 	buffer = trim(buffer);
 
-	delimiters  = delim;
-	num         = 0;
+	num = 0;
+	pos = 0;
 
-	for (size_t pos = 0; pos != std::string::npos;) {
-		pos = buffer.find_first_of(delimiters.c_str(), pos);
+	while (pos != std::string::npos) {
+		pos = buffer.find_first_of(delim, 0);
 		if (pos == string::npos) {
 			item = buffer;
 		} else {
