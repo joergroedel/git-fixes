@@ -851,7 +851,7 @@ int main(int argc, char **argv)
 	if (!parse_options(&opts, argc, argv))
 		goto out;
 
-	error = git_repository_open(&repo, ".");
+	error = git_repository_open(&repo, opts.repo_path.c_str());
 	if (error < 0)
 		goto error;
 
