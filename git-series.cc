@@ -30,6 +30,8 @@ bool std_out = false;
 bool append = false;
 string file_name;
 
+map<string, bool> blob_id_cache;
+
 static bool is_hex(const string &s)
 {
 	for (string::const_iterator c = s.begin(); c != s.end(); ++c) {
@@ -122,6 +124,7 @@ static int blob_content(string& content, const char *path,
 {
 	git_tree_entry *entry;
 	git_blob *blob;
+	string oid;
 	int error;
 
 	content.clear();
@@ -132,6 +135,12 @@ static int blob_content(string& content, const char *path,
 
 	if (git_tree_entry_type(entry) != GIT_OBJ_BLOB)
 		goto out_free_entry;
+
+	oid = git_oid_tostr_s(git_tree_entry_id(entry));
+	if (blob_id_cache.find(oid) != blob_id_cache.end())
+		goto out_free_entry;
+
+	blob_id_cache[oid] = true;
 
 	error = git_blob_lookup(&blob, repo, git_tree_entry_id(entry));
 	if (error)
