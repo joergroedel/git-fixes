@@ -147,18 +147,18 @@ out:
 	return error;
 }
 
-static int parse_patch(const string &path, map<string, string> &results,
-		       git_repository *repo, git_tree *tree,
-		       ofstream &os)
+static void parse_patch(const string &path,
+			git_repository *repo, git_tree *tree,
+			map<string, string> &results)
 {
 	string committer = "Unknown";
 	vector<string> commit_ids;
-	int error, count = 0;
 	string content;
+	int error;
 
 	error = blob_content(content, path.c_str(), repo, tree);
 	if (error)
-		return 0;
+		return;
 
 	istringstream is(content);
 	string line;
@@ -223,21 +223,15 @@ static int parse_patch(const string &path, map<string, string> &results,
 
 	for (vector<string>::iterator it = commit_ids.begin();
 	     it != commit_ids.end();
-	     ++it) {
-		count += 1;
-		os << *it << "," << committer << endl;
-	}
-
-	return count;
+	     ++it)
+		results[*it] = committer;
 }
 
-static int parse_series(const string& series,
-			git_repository *repo, git_tree *tree,
-			ofstream &os)
+static void parse_series(const string& series,
+			 git_repository *repo, git_tree *tree,
+			 map<string, string> &results)
 {
-	map<string, string> results;
 	istringstream is(series);
-	int count = 0;
 	string line;
 
 	while (getline(is, line)) {
@@ -263,21 +257,17 @@ static int parse_series(const string& series,
 		if (!path.length())
 			continue;
 
-		count += parse_patch(path, results, repo, tree, os);
+		parse_patch(path, repo, tree, results);
 	}
-
-	return count;
 }
 
 static int handle_revision(git_repository *repo, const char *revision,
-			   const string& outfile, int *count)
+			   const string& outfile, map<string, string> &results)
 {
-	ios_base::openmode mode = ios_base::out;
 	git_commit *commit;
 	git_object *obj;
 	git_tree *tree;
 	string series;
-	ofstream os;
 	int error;
 
 	error = git_revparse_single(&obj, repo, revision);
@@ -296,16 +286,7 @@ static int handle_revision(git_repository *repo, const char *revision,
 	if (error)
 		goto out_free_tree;
 
-	if (append)
-		mode |= ofstream::app;
-
-	os.open(outfile.c_str(), mode);
-	if (!os.is_open())
-		goto out_free_tree;
-
-	*count += parse_series(series, repo, tree, os);
-
-	os.close();
+	parse_series(series, repo, tree, results);
 
 out_free_tree:
 	git_tree_free(tree);
@@ -352,6 +333,7 @@ static void usage(const char *prg)
 	printf("  --help, -h       Print this message end exit\n");
 	printf("  --repo, -r       Path to git repository\n");
 	printf("  --file, -f       Write output to specified file\n");
+	printf("  --append         Open output file in append mode\n");
 }
 
 static void parse_options(int argc, char **argv)
@@ -397,16 +379,37 @@ static void parse_options(int argc, char **argv)
 		revision = argv[optind++];
 }
 
+static void write_results(ostream &os, map<string, string> &results)
+{
+	for (map<string, string>::iterator it = results.begin();
+	     it != results.end();
+	     ++it)
+		os << it->first << ',' << it->second << endl;
+}
+
 int main(int argc, char **argv)
 {
+	ios_base::openmode file_mode = ios_base::out;
+	map<string, string> results;
 	git_repository *repo = NULL;
-	int error, count = 0;
 	const git_error *e;
+	ofstream os;
+	int error;
 
 	parse_options(argc, argv);
 
 	if (file_name == "")
 		file_name = base_name(revision) + ".list";
+
+	if (append)
+		file_mode |= ofstream::app;
+
+	os.open(file_name.c_str(), file_mode);
+	if (!os.is_open()) {
+		cerr << "Can't open output file " << file_name << endl;
+		error = 1;
+		goto out;
+	}
 
 	git_libgit2_init();
 
@@ -414,13 +417,18 @@ int main(int argc, char **argv)
 	if (error < 0)
 		goto error;
 
-	error = handle_revision(repo, revision.c_str(), file_name, &count);
+	error = handle_revision(repo, revision.c_str(), file_name, results);
 	if (error)
 		goto error;
 
-	cout << "Wrote " << count << " commits to " << file_name << endl;
+	write_results(os, results);
+
+	cout << "Wrote " << results.size() << " commits to " << file_name << endl;
 
 out:
+	if (os.is_open())
+		os.close();
+
 	git_repository_free(repo);
 
 	git_libgit2_shutdown();
