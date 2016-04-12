@@ -1,2 +1,5 @@
 git-fixes
+git-series
+*~
+*.swp
 *.o
