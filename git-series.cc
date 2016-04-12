@@ -26,9 +26,11 @@ using namespace std;
 /* Options */
 string revision = "HEAD";
 string repo_path = ".";
+bool diff_mode = false;
 bool std_out = false;
 bool append = false;
 string file_name;
+string base_rev;
 
 map<string, bool> blob_id_cache;
 
@@ -325,6 +327,7 @@ enum {
 	OPTION_HELP,
 	OPTION_REPO,
 	OPTION_FILE,
+	OPTION_BASE,
 	OPTION_APPEND,
 	OPTION_STDOUT,
 };
@@ -333,6 +336,7 @@ static struct option options[] = {
 	{ "help",		no_argument,		0, OPTION_HELP        },
 	{ "repo",		required_argument,	0, OPTION_REPO        },
 	{ "file",		required_argument,	0, OPTION_FILE        },
+	{ "base",		required_argument,	0, OPTION_BASE        },
 	{ "append",		no_argument,		0, OPTION_APPEND      },
 	{ "stdout",		no_argument,		0, OPTION_STDOUT      },
 	{ 0,			0,			0, 0                  }
@@ -345,6 +349,7 @@ static void usage(const char *prg)
 	printf("  --help, -h       Print this message end exit\n");
 	printf("  --repo, -r       Path to git repository\n");
 	printf("  --file, -f       Write output to specified file\n");
+	printf("  --base, -b       Show only commits not in given base version\n");
 	printf("  --append         Open output file in append mode\n");
 	printf("  --stdout, -c     Write output to stdout\n");
 }
@@ -361,7 +366,7 @@ static void parse_options(int argc, char **argv)
 	while (true) {
 		int opt_idx;
 
-		c = getopt_long(argc, argv, "hr:f:c", options, &opt_idx);
+		c = getopt_long(argc, argv, "hr:f:b:c", options, &opt_idx);
 		if (c == -1)
 			break;
 
@@ -378,6 +383,11 @@ static void parse_options(int argc, char **argv)
 		case OPTION_FILE:
 		case 'f':
 			file_name = optarg;
+			break;
+		case OPTION_BASE:
+		case 'b':
+			base_rev = optarg;
+			diff_mode = true;
 			break;
 		case OPTION_APPEND:
 			append = true;
@@ -404,10 +414,22 @@ static void write_results(ostream &os, map<string, string> &results)
 		os << it->first << ',' << it->second << endl;
 }
 
+static void do_diff(map<string, string> &result,
+		    const map<string, string> &base,
+		    const map<string, string> &branch)
+{
+	for (map<string, string>::const_iterator it = branch.begin();
+	     it != branch.end();
+	     ++it) {
+		if (base.find(it->first) == base.end())
+			result[it->first] = it->second;
+	}
+}
+
 int main(int argc, char **argv)
 {
 	ios_base::openmode file_mode = ios_base::out;
-	map<string, string> results;
+	map<string, string> results, base;
 	git_repository *repo = NULL;
 	const git_error *e;
 	ofstream of;
@@ -441,11 +463,24 @@ int main(int argc, char **argv)
 	if (error < 0)
 		goto error;
 
+	if (diff_mode) {
+		error = handle_revision(repo, base_rev.c_str(), file_name, base);
+		if (error)
+			goto error;
+	}
+
 	error = handle_revision(repo, revision.c_str(), file_name, results);
 	if (error)
 		goto error;
 
-	write_results(*os, results);
+	if (diff_mode) {
+		map<string, string> r;
+
+		do_diff(r, base, results);
+		write_results(*os, r);
+	} else {
+		write_results(*os, results);
+	}
 
 	if (!std_out)
 		cout << "Wrote " << results.size() << " commits to " << file_name << endl;
