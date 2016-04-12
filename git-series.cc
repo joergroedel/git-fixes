@@ -18,6 +18,7 @@
 #include <vector>
 #include <map>
 
+#include <getopt.h>
 #include <git2.h>
 
 using namespace std;
@@ -319,22 +320,78 @@ static string base_name(const string &s)
 	return s.substr(pos + 1);
 }
 
+enum {
+	OPTION_HELP,
+	OPTION_REPO,
+};
+
+static struct option options[] = {
+	{ "help",		no_argument,		0, OPTION_HELP        },
+	{ "repo",		required_argument,	0, OPTION_REPO        },
+	{ 0,			0,			0, 0                  }
+};
+
+string repo_path = ".";
+string revision = "HEAD";
+
+static void usage(const char *prg)
+{
+	printf("Usage: %s [Options] Revision\n", base_name(prg).c_str());
+	printf("Options:\n");
+	printf("  --help, -h       Print this message end exit\n");
+	printf("  --repo, -r       Path to git repository\n");
+}
+
+static void parse_options(int argc, char **argv)
+{
+	int c;
+
+	if (argc < 2) {
+		usage(argv[0]);
+		exit(1);
+	}
+
+	while (true) {
+		int opt_idx;
+
+		c = getopt_long(argc, argv, "hr:", options, &opt_idx);
+		if (c == -1)
+			break;
+
+		switch (c) {
+		case OPTION_HELP:
+		case 'h':
+			usage(argv[0]);
+			exit(0);
+			break;
+		case OPTION_REPO:
+		case 'r':
+			repo_path = optarg;
+			break;
+		default:
+			usage(argv[0]);
+			exit(1);
+		}
+	}
+
+	if (optind < argc)
+		revision = argv[optind++];
+}
+
 int main(int argc, char **argv)
 {
 	git_repository *repo = NULL;
 	const git_error *e;
-	string revision, file;
+	string file;
 	int error, count = 0;
 
-	if (argc < 2)
-		return 1;
+	parse_options(argc, argv);
 
-	revision = argv[1];
 	file = base_name(revision) + ".list";
 
 	git_libgit2_init();
 
-	error = git_repository_open(&repo, ".");
+	error = git_repository_open(&repo, repo_path.c_str());
 	if (error < 0)
 		goto error;
 
