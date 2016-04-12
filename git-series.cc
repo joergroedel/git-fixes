@@ -23,6 +23,12 @@
 
 using namespace std;
 
+/* Options */
+string revision = "HEAD";
+string repo_path = ".";
+bool append = false;
+string file_name;
+
 static bool is_hex(const string &s)
 {
 	for (string::const_iterator c = s.begin(); c != s.end(); ++c) {
@@ -266,6 +272,7 @@ static int parse_series(const string& series,
 static int handle_revision(git_repository *repo, const char *revision,
 			   const string& outfile, int *count)
 {
+	ios_base::openmode mode = ios_base::out;
 	git_commit *commit;
 	git_object *obj;
 	git_tree *tree;
@@ -289,7 +296,10 @@ static int handle_revision(git_repository *repo, const char *revision,
 	if (error)
 		goto out_free_tree;
 
-	os.open(outfile.c_str(), ofstream::out);
+	if (append)
+		mode |= ofstream::app;
+
+	os.open(outfile.c_str(), mode);
 	if (!os.is_open())
 		goto out_free_tree;
 
@@ -324,18 +334,16 @@ enum {
 	OPTION_HELP,
 	OPTION_REPO,
 	OPTION_FILE,
+	OPTION_APPEND,
 };
 
 static struct option options[] = {
 	{ "help",		no_argument,		0, OPTION_HELP        },
 	{ "repo",		required_argument,	0, OPTION_REPO        },
 	{ "file",		required_argument,	0, OPTION_FILE        },
+	{ "append",		no_argument,		0, OPTION_APPEND      },
 	{ 0,			0,			0, 0                  }
 };
-
-string revision = "HEAD";
-string repo_path = ".";
-string file_name;
 
 static void usage(const char *prg)
 {
@@ -375,6 +383,9 @@ static void parse_options(int argc, char **argv)
 		case OPTION_FILE:
 		case 'f':
 			file_name = optarg;
+			break;
+		case OPTION_APPEND:
+			append = true;
 			break;
 		default:
 			usage(argv[0]);
