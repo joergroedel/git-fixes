@@ -26,6 +26,7 @@ using namespace std;
 /* Options */
 string revision = "HEAD";
 string repo_path = ".";
+bool std_out = false;
 bool append = false;
 string file_name;
 
@@ -316,6 +317,7 @@ enum {
 	OPTION_REPO,
 	OPTION_FILE,
 	OPTION_APPEND,
+	OPTION_STDOUT,
 };
 
 static struct option options[] = {
@@ -323,6 +325,7 @@ static struct option options[] = {
 	{ "repo",		required_argument,	0, OPTION_REPO        },
 	{ "file",		required_argument,	0, OPTION_FILE        },
 	{ "append",		no_argument,		0, OPTION_APPEND      },
+	{ "stdout",		no_argument,		0, OPTION_STDOUT      },
 	{ 0,			0,			0, 0                  }
 };
 
@@ -334,6 +337,7 @@ static void usage(const char *prg)
 	printf("  --repo, -r       Path to git repository\n");
 	printf("  --file, -f       Write output to specified file\n");
 	printf("  --append         Open output file in append mode\n");
+	printf("  --stdout, -c     Write output to stdout\n");
 }
 
 static void parse_options(int argc, char **argv)
@@ -348,7 +352,7 @@ static void parse_options(int argc, char **argv)
 	while (true) {
 		int opt_idx;
 
-		c = getopt_long(argc, argv, "hr:f:", options, &opt_idx);
+		c = getopt_long(argc, argv, "hr:f:c", options, &opt_idx);
 		if (c == -1)
 			break;
 
@@ -368,6 +372,10 @@ static void parse_options(int argc, char **argv)
 			break;
 		case OPTION_APPEND:
 			append = true;
+			break;
+		case OPTION_STDOUT:
+		case 'c':
+			std_out = true;
 			break;
 		default:
 			usage(argv[0]);
@@ -393,7 +401,8 @@ int main(int argc, char **argv)
 	map<string, string> results;
 	git_repository *repo = NULL;
 	const git_error *e;
-	ofstream os;
+	ofstream of;
+	ostream *os;
 	int error;
 
 	parse_options(argc, argv);
@@ -404,11 +413,17 @@ int main(int argc, char **argv)
 	if (append)
 		file_mode |= ofstream::app;
 
-	os.open(file_name.c_str(), file_mode);
-	if (!os.is_open()) {
-		cerr << "Can't open output file " << file_name << endl;
-		error = 1;
-		goto out;
+	if (!std_out) {
+		of.open(file_name.c_str(), file_mode);
+		if (!of.is_open()) {
+			cerr << "Can't open output file " << file_name << endl;
+			error = 1;
+			goto out;
+		}
+
+		os = &of;
+	} else {
+		os = &cout;
 	}
 
 	git_libgit2_init();
@@ -421,13 +436,14 @@ int main(int argc, char **argv)
 	if (error)
 		goto error;
 
-	write_results(os, results);
+	write_results(*os, results);
 
-	cout << "Wrote " << results.size() << " commits to " << file_name << endl;
+	if (!std_out)
+		cout << "Wrote " << results.size() << " commits to " << file_name << endl;
 
 out:
-	if (os.is_open())
-		os.close();
+	if (of.is_open())
+		of.close();
 
 	git_repository_free(repo);
 
