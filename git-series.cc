@@ -323,16 +323,19 @@ static string base_name(const string &s)
 enum {
 	OPTION_HELP,
 	OPTION_REPO,
+	OPTION_FILE,
 };
 
 static struct option options[] = {
 	{ "help",		no_argument,		0, OPTION_HELP        },
 	{ "repo",		required_argument,	0, OPTION_REPO        },
+	{ "file",		required_argument,	0, OPTION_FILE        },
 	{ 0,			0,			0, 0                  }
 };
 
-string repo_path = ".";
 string revision = "HEAD";
+string repo_path = ".";
+string file_name;
 
 static void usage(const char *prg)
 {
@@ -340,6 +343,7 @@ static void usage(const char *prg)
 	printf("Options:\n");
 	printf("  --help, -h       Print this message end exit\n");
 	printf("  --repo, -r       Path to git repository\n");
+	printf("  --file, -f       Write output to specified file\n");
 }
 
 static void parse_options(int argc, char **argv)
@@ -354,7 +358,7 @@ static void parse_options(int argc, char **argv)
 	while (true) {
 		int opt_idx;
 
-		c = getopt_long(argc, argv, "hr:", options, &opt_idx);
+		c = getopt_long(argc, argv, "hr:f:", options, &opt_idx);
 		if (c == -1)
 			break;
 
@@ -367,6 +371,10 @@ static void parse_options(int argc, char **argv)
 		case OPTION_REPO:
 		case 'r':
 			repo_path = optarg;
+			break;
+		case OPTION_FILE:
+		case 'f':
+			file_name = optarg;
 			break;
 		default:
 			usage(argv[0]);
@@ -381,13 +389,13 @@ static void parse_options(int argc, char **argv)
 int main(int argc, char **argv)
 {
 	git_repository *repo = NULL;
-	const git_error *e;
-	string file;
 	int error, count = 0;
+	const git_error *e;
 
 	parse_options(argc, argv);
 
-	file = base_name(revision) + ".list";
+	if (file_name == "")
+		file_name = base_name(revision) + ".list";
 
 	git_libgit2_init();
 
@@ -395,11 +403,11 @@ int main(int argc, char **argv)
 	if (error < 0)
 		goto error;
 
-	error = handle_revision(repo, revision.c_str(), file, &count);
+	error = handle_revision(repo, revision.c_str(), file_name, &count);
 	if (error)
 		goto error;
 
-	cout << "Wrote " << count << " commits to " << file << endl;
+	cout << "Wrote " << count << " commits to " << file_name << endl;
 
 out:
 	git_repository_free(repo);
