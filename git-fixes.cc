@@ -36,6 +36,7 @@ struct options {
 	string committer;
 	string fixes_file;
 	string db;
+	bool all_cmdline;
 	bool all;
 	bool match_all;
 	bool no_group;
@@ -631,11 +632,8 @@ static string config_get_path_nofail(git_config *cfg, const char *name)
 	return string(getenv("HOME")) + path.substr(1);
 }
 
-static int load_defaults(git_repository *repo, struct options *opts)
+static void set_defaults(struct options *opts)
 {
-	git_config *repo_cfg = NULL;
-	int val, error;
-
 	opts->repo_path = ".";
 	opts->revision  = "HEAD";
 	opts->reverse   = true;
@@ -645,17 +643,28 @@ static int load_defaults(git_repository *repo, struct options *opts)
 	opts->stats	= false;
 	opts->stable    = true;
 	opts->no_stable = true;
+}
+
+static int load_defaults_from_git(git_repository *repo, struct options *opts)
+{
+	git_config *repo_cfg = NULL;
+	int val, error;
 
 	error = git_repository_config(&repo_cfg, repo);
 	if (error < 0)
 		goto out;
 
-	opts->committer  = config_get_string_nofail(repo_cfg, "user.email");
-	opts->fixes_file = config_get_path_nofail(repo_cfg, "fixes.file");
+	if (opts->committer == "")
+		opts->committer = config_get_string_nofail(repo_cfg, "user.email");
 
-	error = git_config_get_bool(&val, repo_cfg, "fixes.all");
-	if (!error)
-		opts->all = val ? true : false;
+	if (opts->fixes_file == "")
+		opts->fixes_file = config_get_path_nofail(repo_cfg, "fixes.file");
+
+	if (!opts->all_cmdline) {
+		error = git_config_get_bool(&val, repo_cfg, "fixes.all");
+		if (!error)
+			opts->all = val ? true : false;
+	}
 
 	error = 0;
 out:
@@ -738,22 +747,25 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 			break;
 		case OPTION_ALL:
 		case 'a':
-			opts->all = true;
+			opts->all         = true;
+			opts->all_cmdline = true;
 			break;
 		case OPTION_REPO:
 		case 'r':
 			opts->repo_path = optarg;
 			break;
 		case OPTION_ME:
-			opts->all = false;
+			opts->all         = false;
+			opts->all_cmdline = true;
 			break;
 		case OPTION_REVERSE:
 			opts->reverse = true;
 			break;
 		case OPTION_COMMITTER:
 		case 'c':
-			opts->committer = optarg;
-			opts->all = false;
+			opts->committer   = optarg;
+			opts->all         = false;
+			opts->all_cmdline = true;
 			break;
 		case OPTION_GROUPING:
 			opts->no_group = false;
@@ -833,17 +845,19 @@ int main(int argc, char **argv)
 
 	git_libgit2_init();
 
-	error = git_repository_open(&repo, ".");
-	if (error < 0)
-		goto error;
-
-	error = load_defaults(repo, &opts);
-	if (error < 0)
-		goto error;
+	set_defaults(&opts);
 
 	error = 1;
 	if (!parse_options(&opts, argc, argv))
 		goto out;
+
+	error = git_repository_open(&repo, ".");
+	if (error < 0)
+		goto error;
+
+	error = load_defaults_from_git(repo, &opts);
+	if (error < 0)
+		goto error;
 
 	error = db_file(filename, repo, &opts);
 	if (error)
