@@ -31,6 +31,7 @@
 using namespace std;
 
 struct options {
+	string repo_path;
 	string revision;
 	string committer;
 	string fixes_file;
@@ -635,6 +636,7 @@ static int load_defaults(git_repository *repo, struct options *opts)
 	git_config *repo_cfg = NULL;
 	int val, error;
 
+	opts->repo_path = ".";
 	opts->revision  = "HEAD";
 	opts->reverse   = true;
 	opts->match_all = false;
@@ -665,6 +667,7 @@ out:
 enum {
 	OPTION_HELP,
 	OPTION_ALL,
+	OPTION_REPO,
 	OPTION_ME,
 	OPTION_REVERSE,
 	OPTION_COMMITTER,
@@ -681,6 +684,7 @@ enum {
 static struct option options[] = {
 	{ "help",		no_argument,		0, OPTION_HELP        },
 	{ "all",		no_argument,		0, OPTION_ALL         },
+	{ "repo",		required_argument,	0, OPTION_REPO        },
 	{ "me",			no_argument,		0, OPTION_ME          },
 	{ "reverse",		no_argument,		0, OPTION_REVERSE     },
 	{ "committer",		required_argument,	0, OPTION_COMMITTER   },
@@ -700,6 +704,7 @@ static void usage(const char *prg)
 	printf("Usage: %s [Options] [Revspec [Path...]]\n", prg);
 	printf("Options:\n");
 	printf("  --help, -h       Print this message end exit\n");
+	printf("  --repo, -r       Path to git repo (defaults to '.')\n");
 	printf("  --all, -a        Show all potential fixes\n");
 	printf("  --me             Show only fixes for patches I committed\n");
 	printf("  --reverse        Sort fixes in reverse order\n");
@@ -721,7 +726,7 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 	while (true) {
 		int opt_idx;
 
-		c = getopt_long(argc, argv, "hac:f:d:ms", options, &opt_idx);
+		c = getopt_long(argc, argv, "har:c:f:d:ms", options, &opt_idx);
 		if (c == -1)
 			break;
 
@@ -734,6 +739,10 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 		case OPTION_ALL:
 		case 'a':
 			opts->all = true;
+			break;
+		case OPTION_REPO:
+		case 'r':
+			opts->repo_path = optarg;
 			break;
 		case OPTION_ME:
 			opts->all = false;
