@@ -46,6 +46,7 @@ struct options {
 	bool stable;
 	bool no_stable;
 	bool write_bl;
+	bool no_blacklist;
 	vector<string> path;
 };
 
@@ -356,7 +357,7 @@ static int handle_commit(git_commit *commit, git_repository *repo,
 	git_oid_fmt(commit_id, oid);
 	commit_id[40] = 0;
 
-	if (is_blacklisted(commit_id))
+	if (!opts->no_blacklist && is_blacklisted(commit_id))
 		return 0;
 
 	msg = git_commit_message(commit);
@@ -729,16 +730,17 @@ static string config_get_path_nofail(git_config *cfg, const char *name)
 
 static void set_defaults(struct options *opts)
 {
-	opts->repo_path = ".";
-	opts->revision  = "HEAD";
-	opts->reverse   = true;
-	opts->match_all = false;
-	opts->all       = true;
-	opts->no_group  = false;
-	opts->stats	= false;
-	opts->stable    = true;
-	opts->no_stable = true;
-	opts->write_bl  = false;
+	opts->repo_path    = ".";
+	opts->revision     = "HEAD";
+	opts->reverse      = true;
+	opts->match_all    = false;
+	opts->all          = true;
+	opts->no_group     = false;
+	opts->stats	   = false;
+	opts->stable       = true;
+	opts->no_stable    = true;
+	opts->write_bl     = false;
+	opts->no_blacklist = false;
 }
 
 static int load_defaults_from_git(git_repository *repo, struct options *opts)
@@ -783,29 +785,31 @@ enum {
 	OPTION_MATCH_ALL,
 	OPTION_FILE,
 	OPTION_BLACKLIST,
+	OPTION_NO_BLACKLIST,
 	OPTION_ADD_BL,
 	OPTION_DATA_BASE,
 	OPTION_STATS,
 };
 
 static struct option options[] = {
-	{ "help",		no_argument,		0, OPTION_HELP        },
-	{ "all",		no_argument,		0, OPTION_ALL         },
-	{ "repo",		required_argument,	0, OPTION_REPO        },
-	{ "me",			no_argument,		0, OPTION_ME          },
-	{ "reverse",		no_argument,		0, OPTION_REVERSE     },
-	{ "committer",		required_argument,	0, OPTION_COMMITTER   },
-	{ "grouping",		no_argument,		0, OPTION_GROUPING    },
-	{ "no-grouping",	no_argument,		0, OPTION_NO_GROUPING },
-	{ "stable",		no_argument,		0, OPTION_STABLE      },
-	{ "no-stable",		no_argument,		0, OPTION_NO_STABLE   },
-	{ "match-all",		no_argument,		0, OPTION_MATCH_ALL   },
-	{ "data-base",		required_argument,	0, OPTION_DATA_BASE   },
-	{ "file",		required_argument,	0, OPTION_FILE        },
-	{ "blacklist",		required_argument,	0, OPTION_BLACKLIST   },
-	{ "Blacklist",		required_argument,	0, OPTION_ADD_BL      },
-	{ "stats",		no_argument,		0, OPTION_STATS       },
-	{ 0,			0,			0, 0                  }
+	{ "help",		no_argument,		0, OPTION_HELP         },
+	{ "all",		no_argument,		0, OPTION_ALL          },
+	{ "repo",		required_argument,	0, OPTION_REPO         },
+	{ "me",			no_argument,		0, OPTION_ME           },
+	{ "reverse",		no_argument,		0, OPTION_REVERSE      },
+	{ "committer",		required_argument,	0, OPTION_COMMITTER    },
+	{ "grouping",		no_argument,		0, OPTION_GROUPING     },
+	{ "no-grouping",	no_argument,		0, OPTION_NO_GROUPING  },
+	{ "stable",		no_argument,		0, OPTION_STABLE       },
+	{ "no-stable",		no_argument,		0, OPTION_NO_STABLE    },
+	{ "match-all",		no_argument,		0, OPTION_MATCH_ALL    },
+	{ "data-base",		required_argument,	0, OPTION_DATA_BASE    },
+	{ "file",		required_argument,	0, OPTION_FILE         },
+	{ "blacklist",		required_argument,	0, OPTION_BLACKLIST    },
+	{ "no-blacklist",	no_argument,		0, OPTION_NO_BLACKLIST },
+	{ "Blacklist",		required_argument,	0, OPTION_ADD_BL       },
+	{ "stats",		no_argument,		0, OPTION_STATS        },
+	{ 0,			0,			0, 0                   }
 };
 
 static void usage(const char *prg)
@@ -826,6 +830,7 @@ static void usage(const char *prg)
 	printf("  --data-base, -d  Select specific data-base (set file with fixes.<db>.file)\n");
 	printf("  --file, -f       Read commit-list from file\n");
 	printf("  --blacklist, -b  Read blacklist from file\n");
+	printf("  --no-blacklist,  Also show blacklisted commits\n");
 	printf("  --Blacklist, -B  Add commit to blacklist\n");
 	printf("  --stats, -s      Print some statistics at the end\n");
 }
@@ -894,6 +899,9 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 		case OPTION_BLACKLIST:
 		case 'b':
 			opts->bl_file = optarg;
+			break;
+		case OPTION_NO_BLACKLIST:
+			opts->no_blacklist = true;
 			break;
 		case OPTION_ADD_BL:
 		case 'B':
