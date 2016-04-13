@@ -488,6 +488,8 @@ static void load_blacklist_file(const string &filename)
 		blacklist.push_back(line);
 	}
 
+	file.close();
+
 	sort(blacklist.begin(), blacklist.end());
 }
 
