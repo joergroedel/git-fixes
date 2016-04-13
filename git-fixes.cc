@@ -510,6 +510,31 @@ static bool write_blacklist_file(const string &filename)
 	return true;
 }
 
+static void sanitize_blacklist(git_repository *repo)
+{
+	vector<string> old_blacklist = blacklist;
+
+	blacklist.clear();
+
+	for (vector<string>::iterator it = old_blacklist.begin();
+	     it != old_blacklist.end();
+	     ++it) {
+		git_object *obj;
+		int error;
+
+		error = git_revparse_single(&obj, repo, it->c_str());
+		if (error) {
+			fprintf(stderr, "Blacklisted commit %s can't be found - removing\n",
+				it->c_str());
+			continue;
+		}
+
+		blacklist.push_back(git_oid_tostr_s(git_object_id(obj)));
+
+		git_object_free(obj);
+	}
+}
+
 static int revwalk_init(git_revwalk **walker, git_repository *repo,
 		 const char *revision)
 {
@@ -978,7 +1003,11 @@ int main(int argc, char **argv)
 	load_blacklist_file(bl_filename);
 
 	if (opts.write_bl) {
-		bool ret = write_blacklist_file(bl_filename);
+		bool ret;
+
+		sanitize_blacklist(repo);
+
+		ret = write_blacklist_file(bl_filename);
 
 		if (!ret) {
 			fprintf(stderr, "Can't write blacklist file: %s\n",
