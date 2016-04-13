@@ -45,6 +45,7 @@ struct options {
 	bool reverse;
 	bool stable;
 	bool no_stable;
+	bool write_bl;
 	vector<string> path;
 };
 
@@ -490,6 +491,25 @@ static void load_blacklist_file(const string &filename)
 	sort(blacklist.begin(), blacklist.end());
 }
 
+static bool write_blacklist_file(const string &filename)
+{
+	ofstream file;
+
+	file.open(filename.c_str());
+
+	if (!file.is_open())
+		return false;
+
+	for (vector<string>::iterator it = blacklist.begin();
+	     it != blacklist.end();
+	     ++it)
+		file << *it << endl;
+
+	file.close();
+
+	return true;
+}
+
 static int revwalk_init(git_revwalk **walker, git_repository *repo,
 		 const char *revision)
 {
@@ -691,6 +711,7 @@ static void set_defaults(struct options *opts)
 	opts->stats	= false;
 	opts->stable    = true;
 	opts->no_stable = true;
+	opts->write_bl  = false;
 }
 
 static int load_defaults_from_git(git_repository *repo, struct options *opts)
@@ -735,6 +756,7 @@ enum {
 	OPTION_MATCH_ALL,
 	OPTION_FILE,
 	OPTION_BLACKLIST,
+	OPTION_ADD_BL,
 	OPTION_DATA_BASE,
 	OPTION_STATS,
 };
@@ -754,6 +776,7 @@ static struct option options[] = {
 	{ "data-base",		required_argument,	0, OPTION_DATA_BASE   },
 	{ "file",		required_argument,	0, OPTION_FILE        },
 	{ "blacklist",		required_argument,	0, OPTION_BLACKLIST   },
+	{ "Blacklist",		required_argument,	0, OPTION_ADD_BL      },
 	{ "stats",		no_argument,		0, OPTION_STATS       },
 	{ 0,			0,			0, 0                  }
 };
@@ -776,6 +799,7 @@ static void usage(const char *prg)
 	printf("  --data-base, -d  Select specific data-base (set file with fixes.<db>.file)\n");
 	printf("  --file, -f       Read commit-list from file\n");
 	printf("  --blacklist, -b  Read blacklist from file\n");
+	printf("  --Blacklist, -B  Add commit to blacklist\n");
 	printf("  --stats, -s      Print some statistics at the end\n");
 }
 
@@ -844,6 +868,17 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 		case 'b':
 			opts->bl_file = optarg;
 			break;
+		case OPTION_ADD_BL:
+		case 'B':
+		{
+			string id(optarg);
+
+			opts->write_bl = true;
+			id = to_lower(id);
+			if (is_hex(id))
+				blacklist.push_back(id);
+			break;
+		}
 		case OPTION_DATA_BASE:
 		case 'd':
 			opts->db = optarg;
@@ -941,6 +976,20 @@ int main(int argc, char **argv)
 
 	bl_file(bl_filename, repo, &opts);
 	load_blacklist_file(bl_filename);
+
+	if (opts.write_bl) {
+		bool ret = write_blacklist_file(bl_filename);
+
+		if (!ret) {
+			fprintf(stderr, "Can't write blacklist file: %s\n",
+				bl_filename.c_str());
+			error = 1;
+		} else {
+			error = 0;
+		}
+
+		goto out;
+	}
 
 	if (!load_commit_file(filename.c_str(), match_list))
 		goto out;
