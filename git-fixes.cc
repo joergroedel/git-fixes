@@ -775,7 +775,7 @@ static void usage(const char *prg)
 	printf("  --match-all, -m  Match against everything that looks like a git commit-id\n");
 	printf("  --data-base, -d  Select specific data-base (set file with fixes.<db>.file)\n");
 	printf("  --file, -f       Read commit-list from file\n");
-	printf("  --blacklist      Read blacklist from file\n");
+	printf("  --blacklist, -b  Read blacklist from file\n");
 	printf("  --stats, -s      Print some statistics at the end\n");
 }
 
@@ -786,7 +786,7 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 	while (true) {
 		int opt_idx;
 
-		c = getopt_long(argc, argv, "har:c:f:d:ms", options, &opt_idx);
+		c = getopt_long(argc, argv, "har:c:f:b:d:ms", options, &opt_idx);
 		if (c == -1)
 			break;
 
@@ -841,6 +841,7 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 			opts->fixes_file = optarg;
 			break;
 		case OPTION_BLACKLIST:
+		case 'b':
 			opts->bl_file = optarg;
 			break;
 		case OPTION_DATA_BASE:
