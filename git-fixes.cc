@@ -35,6 +35,7 @@ struct options {
 	string revision;
 	string committer;
 	string fixes_file;
+	string bl_file;
 	string db;
 	bool all_cmdline;
 	bool all;
@@ -77,6 +78,17 @@ struct match_info {
 
 vector<struct match_info> match_list;
 map<string, vector<commit> > results;
+vector<string> blacklist;
+
+static bool is_hex(const string &s)
+{
+	for (string::const_iterator c = s.begin(); c != s.end(); ++c) {
+		if (!isxdigit(*c))
+			return false;
+	}
+
+	return true;
+}
 
 static string to_lower(string s)
 {
@@ -142,6 +154,15 @@ string fix_revision(string rev)
 		rev = rev + "HEAD";
 
 	return rev;
+}
+
+static bool is_blacklisted(const string &commit_id)
+{
+	vector<string>::const_iterator it;
+
+	it = lower_bound(blacklist.begin(), blacklist.end(), commit_id);
+
+	return (it != blacklist.end() && *it == commit_id);
 }
 
 static int match_parent_tree(git_commit *commit, size_t p,
@@ -333,8 +354,11 @@ static int handle_commit(git_commit *commit, git_repository *repo,
 
 	git_oid_fmt(commit_id, oid);
 	commit_id[40] = 0;
-	msg = git_commit_message(commit);
 
+	if (is_blacklisted(commit_id))
+		return 0;
+
+	msg = git_commit_message(commit);
 	c.id = commit_id;
 	parse_commit_msg(c, msg);
 
@@ -440,6 +464,30 @@ static bool load_commit_file(const char *filename, vector<struct match_info> &co
 		file.close();
 
 	return true;
+}
+
+static void load_blacklist_file(const string &filename)
+{
+	ifstream file;
+	string line;
+
+	if (filename == "")
+		return;
+
+	file.open(filename.c_str());
+
+	if (!file.is_open())
+		return;
+
+	while (getline(file, line)) {
+		line = to_lower(trim(line));
+		if (!is_hex(line))
+			continue;
+
+		blacklist.push_back(line);
+	}
+
+	sort(blacklist.begin(), blacklist.end());
 }
 
 static int revwalk_init(git_revwalk **walker, git_repository *repo,
@@ -686,6 +734,7 @@ enum {
 	OPTION_NO_STABLE,
 	OPTION_MATCH_ALL,
 	OPTION_FILE,
+	OPTION_BLACKLIST,
 	OPTION_DATA_BASE,
 	OPTION_STATS,
 };
@@ -704,6 +753,7 @@ static struct option options[] = {
 	{ "match-all",		no_argument,		0, OPTION_MATCH_ALL   },
 	{ "data-base",		required_argument,	0, OPTION_DATA_BASE   },
 	{ "file",		required_argument,	0, OPTION_FILE        },
+	{ "blacklist",		required_argument,	0, OPTION_BLACKLIST   },
 	{ "stats",		no_argument,		0, OPTION_STATS       },
 	{ 0,			0,			0, 0                  }
 };
@@ -725,6 +775,7 @@ static void usage(const char *prg)
 	printf("  --match-all, -m  Match against everything that looks like a git commit-id\n");
 	printf("  --data-base, -d  Select specific data-base (set file with fixes.<db>.file)\n");
 	printf("  --file, -f       Read commit-list from file\n");
+	printf("  --blacklist      Read blacklist from file\n");
 	printf("  --stats, -s      Print some statistics at the end\n");
 }
 
@@ -789,6 +840,9 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 		case 'f':
 			opts->fixes_file = optarg;
 			break;
+		case OPTION_BLACKLIST:
+			opts->bl_file = optarg;
+			break;
 		case OPTION_DATA_BASE:
 		case 'd':
 			opts->db = optarg;
@@ -835,12 +889,33 @@ static int db_file(string &filename, git_repository *repo, struct options *opts)
 	return 0;
 }
 
+static void bl_file(string &filename, git_repository *repo, struct options *opts)
+{
+	if (opts->db.length() > 0) {
+		git_config *repo_cfg = NULL;
+		string key;
+		int error;
+
+		key = "fixes." + opts->db + ".blacklist";
+
+		error = git_repository_config(&repo_cfg, repo);
+		if (error < 0)
+			return;
+
+		filename = config_get_path_nofail(repo_cfg, key.c_str());
+
+		git_config_free(repo_cfg);
+	} else {
+		filename = opts->bl_file;
+	}
+}
+
 int main(int argc, char **argv)
 {
+	string filename, bl_filename;
 	git_repository *repo = NULL;
 	struct options opts;
 	const git_error *e;
-	string filename;
 	int error;
 
 	git_libgit2_init();
@@ -862,6 +937,9 @@ int main(int argc, char **argv)
 	error = db_file(filename, repo, &opts);
 	if (error)
 		goto error;
+
+	bl_file(bl_filename, repo, &opts);
+	load_blacklist_file(bl_filename);
 
 	if (!load_commit_file(filename.c_str(), match_list))
 		goto out;
