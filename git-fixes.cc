@@ -288,6 +288,11 @@ static bool match_commit(const struct commit &c, const string &id,
 	return ret;
 }
 
+static bool isdelim(int c)
+{
+	return isblank(c) || c == ':';
+}
+
 static void parse_line(const string &line, vector<struct reference> &commits)
 {
 	bool found_commit = false;
@@ -301,14 +306,14 @@ static void parse_line(const string &line, vector<struct reference> &commits)
 	for (c = line.begin(); c != line.end(); last_c = *c, ++c) {
 		bool hex = isxdigit(*c);
 
-		if (isblank(last_c) && hex) {
+		if (isdelim(last_c) && hex) {
 			found_commit = true;
 		}
 
 		if (found_commit && hex)
 			commit.id += *c;
 
-		if (found_commit && (isblank(*c) || (c + 1) == line.end())) {
+		if (found_commit && (isdelim(*c) || (c + 1) == line.end())) {
 			int len = commit.id.length();
 
 			if (len >= 8 && len <= 40)
