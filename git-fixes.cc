@@ -544,7 +544,7 @@ static void sanitize_blacklist(git_repository *repo)
 }
 
 static int revwalk_init(git_revwalk **walker, git_repository *repo,
-		 const char *revision)
+			const char *revision)
 {
 	git_revspec spec;
 	int err;
@@ -640,8 +640,16 @@ static int fixes(git_repository *repo, struct options *opts)
 	revision = fix_revision(opts->revision);
 
 	err = revwalk_init(&walker, repo, revision.c_str());
-	if (err < 0)
-		return err;
+	if (err < 0) {
+		/*
+		 * Parsing revision failed - fall back to HEAD and
+		 * interpret it as path
+		 */
+		err = revwalk_init(&walker, repo, "HEAD");
+		if (err < 0)
+			return err;
+		opts->path.push_back(opts->revision);
+	}
 
 	if (opts->reverse)
 		sorting |= GIT_SORT_REVERSE;
