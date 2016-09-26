@@ -52,6 +52,7 @@ struct options {
 
 struct commit {
 	string subject;
+	string context;
 	string id;
 	bool stable;
 	vector<struct reference> refs;
@@ -280,9 +281,11 @@ static bool match_commit(const struct commit &c, const string &id,
 	       match_tree(commit, diffopts);
 
 	if (ret) {
+		struct commit __commit = c;
 		string key = opts->no_group ? "default" : it->committer;
 
-		results[key].push_back(c);
+		__commit.context = it->committer;
+		results[key].push_back(__commit);
 	}
 
 	return ret;
