@@ -419,7 +419,8 @@ static void print_results(struct options *opts)
 			       i->id.substr(0,12).c_str(),
 			       i->subject.c_str());
 		}
-		printf("\n");
+		if (!opts->no_group)
+			printf("\n");
 	}
 
 	if (!found)
