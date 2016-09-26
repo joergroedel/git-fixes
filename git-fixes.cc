@@ -47,6 +47,7 @@ struct options {
 	bool no_stable;
 	bool write_bl;
 	bool no_blacklist;
+	bool parsable;
 	vector<string> path;
 };
 
@@ -414,16 +415,23 @@ static void print_results(struct options *opts)
 
 		found = true;
 
-		if (!opts->no_group)
-			printf("%s (%lu):\n", r->first.c_str(), r->second.size());
+		if (opts->parsable) {
+			for (i = r->second.begin(); i != r->second.end(); ++i) {
+				printf("%s;%s;%s\n", i->context.c_str(),
+					i->id.c_str(), i->subject.c_str());
+			}
+		} else {
+			if (!opts->no_group)
+				printf("%s (%lu):\n", r->first.c_str(), r->second.size());
 
-		for (i = r->second.begin(); i != r->second.end(); ++i) {
-			printf("%s%s %s\n", prefix,
-			       i->id.substr(0,12).c_str(),
-			       i->subject.c_str());
+			for (i = r->second.begin(); i != r->second.end(); ++i) {
+				printf("%s%s %s\n", prefix,
+						i->id.substr(0,12).c_str(),
+						i->subject.c_str());
+			}
+			if (!opts->no_group)
+				printf("\n");
 		}
-		if (!opts->no_group)
-			printf("\n");
 	}
 
 	if (!found)
@@ -758,6 +766,7 @@ static void set_defaults(struct options *opts)
 	opts->no_stable    = true;
 	opts->write_bl     = false;
 	opts->no_blacklist = false;
+	opts->parsable     = false;
 }
 
 static int load_defaults_from_git(git_repository *repo, struct options *opts)
@@ -806,6 +815,7 @@ enum {
 	OPTION_ADD_BL,
 	OPTION_DATA_BASE,
 	OPTION_STATS,
+	OPTION_PARSABLE,
 };
 
 static struct option options[] = {
@@ -826,6 +836,7 @@ static struct option options[] = {
 	{ "no-blacklist",	no_argument,		0, OPTION_NO_BLACKLIST },
 	{ "Blacklist",		required_argument,	0, OPTION_ADD_BL       },
 	{ "stats",		no_argument,		0, OPTION_STATS        },
+	{ "parsable",		no_argument,		0, OPTION_PARSABLE     },
 	{ 0,			0,			0, 0                   }
 };
 
@@ -850,6 +861,7 @@ static void usage(const char *prg)
 	printf("  --no-blacklist,  Also show blacklisted commits\n");
 	printf("  --Blacklist, -B  Add commit to blacklist\n");
 	printf("  --stats, -s      Print some statistics at the end\n");
+	printf("  --parsable, -p   Print machine readable output\n");
 }
 
 static bool parse_options(struct options *opts, int argc, char **argv)
@@ -859,7 +871,7 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 	while (true) {
 		int opt_idx;
 
-		c = getopt_long(argc, argv, "har:c:f:b:d:B:ms", options, &opt_idx);
+		c = getopt_long(argc, argv, "har:c:f:b:d:B:msp", options, &opt_idx);
 		if (c == -1)
 			break;
 
@@ -938,6 +950,11 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 		case OPTION_STATS:
 		case 's':
 			opts->stats = true;
+			break;
+		case OPTION_PARSABLE:
+		case 'p':
+			opts->parsable = true;
+			opts->no_group = true;
 			break;
 		default:
 			usage(argv[0]);
