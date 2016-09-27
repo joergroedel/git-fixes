@@ -1,6 +1,6 @@
 OBJ_FIXES=git-fixes.o
 OBJ_SUSE=git-suse.o
-CXXFLAGS=-O3 -Wall
+CXXFLAGS=-O3 -Wall -std=c++11
 TARGET_FIXES=git-fixes
 TARGET_SUSE=git-suse
 INSTALL_DIR ?= "${HOME}/bin/"
