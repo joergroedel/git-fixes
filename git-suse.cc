@@ -164,7 +164,7 @@ out:
 static void parse_patch(const string &path,
 			git_repository *repo, git_tree *tree,
 			map<string, string> &results,
-			set<string> blacklist)
+			set<string> &blacklist)
 {
 	string committer = "Unknown";
 	vector<string> commit_ids;
@@ -271,7 +271,7 @@ static void parse_blacklist(string &content, set<string> &blacklist)
 static void parse_series(const string& series,
 			 git_repository *repo, git_tree *tree,
 			 map<string, string> &results,
-			 set<string> blacklist)
+			 set<string> &blacklist)
 {
 	istringstream is(series);
 	string line;
@@ -306,7 +306,7 @@ static void parse_series(const string& series,
 static int handle_revision(git_repository *repo, const char *revision,
 			   const string& outfile,
 			   map<string, string> &results,
-			   set<string> blacklist)
+			   set<string> &blacklist)
 {
 	git_commit *commit;
 	git_object *obj;
