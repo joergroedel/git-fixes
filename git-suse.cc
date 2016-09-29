@@ -524,7 +524,9 @@ int main(int argc, char **argv)
 		goto error;
 
 	if (diff_mode) {
-		error = handle_revision(repo, base_rev.c_str(), file_name, base, blacklist);
+		set<string> ignored;
+
+		error = handle_revision(repo, base_rev.c_str(), file_name, base, ignored);
 		if (error)
 			goto error;
 	}
