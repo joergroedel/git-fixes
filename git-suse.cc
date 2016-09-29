@@ -28,6 +28,7 @@ using namespace std;
 string revision = "HEAD";
 string repo_path = ".";
 bool diff_mode = false;
+string blacklist_file;
 bool std_out = false;
 bool append = false;
 string file_name;
@@ -366,6 +367,7 @@ enum {
 	OPTION_BASE,
 	OPTION_APPEND,
 	OPTION_STDOUT,
+	OPTION_BLACKLIST,
 };
 
 static struct option options[] = {
@@ -375,6 +377,7 @@ static struct option options[] = {
 	{ "base",		required_argument,	0, OPTION_BASE        },
 	{ "append",		no_argument,		0, OPTION_APPEND      },
 	{ "stdout",		no_argument,		0, OPTION_STDOUT      },
+	{ "blacklist",		required_argument,	0, OPTION_BLACKLIST   },
 	{ 0,			0,			0, 0                  }
 };
 
@@ -385,6 +388,7 @@ static void usage(const char *prg)
 	printf("  --help, -h       Print this message end exit\n");
 	printf("  --repo, -r       Path to git repository\n");
 	printf("  --file, -f       Write output to specified file\n");
+	printf("  --blacklist      Write blacklist to specified file\n");
 	printf("  --base, -b       Show only commits not in given base version\n");
 	printf("  --append         Open output file in append mode\n");
 	printf("  --stdout, -c     Write output to stdout\n");
@@ -432,6 +436,9 @@ static void parse_options(int argc, char **argv)
 		case 'c':
 			std_out = true;
 			break;
+		case OPTION_BLACKLIST:
+			blacklist_file = optarg;
+			break;
 		default:
 			usage(argv[0]);
 			exit(1);
@@ -440,6 +447,26 @@ static void parse_options(int argc, char **argv)
 
 	if (optind < argc)
 		revision = argv[optind++];
+}
+
+static void write_blacklist(set<string> &blacklist)
+{
+	ofstream file;
+
+	if (blacklist_file == "")
+		return;
+
+	file.open(blacklist_file.c_str());
+
+	if (!file.is_open()) {
+		fprintf(stderr, "Can't open blacklist file for writing\n");
+		return;
+	}
+
+	for (auto &c : blacklist)
+		file << c << std::endl;
+
+	file.close();
 }
 
 static void write_results(ostream &os, map<string, string> &results)
@@ -518,6 +545,8 @@ int main(int argc, char **argv)
 
 	if (!std_out)
 		cout << "Wrote " << results.size() << " commits to " << file_name << endl;
+
+	write_blacklist(blacklist);
 
 out:
 	if (of.is_open())
