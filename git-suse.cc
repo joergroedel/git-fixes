@@ -466,6 +466,8 @@ static void write_blacklist(set<string> &blacklist)
 	for (auto &c : blacklist)
 		file << c << std::endl;
 
+	cout << "Wrote " << blacklist.size() << " blacklisted commits to " << blacklist_file << endl;
+
 	file.close();
 }
 
