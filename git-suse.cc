@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 
 #include <getopt.h>
 #include <git2.h>
@@ -161,7 +162,8 @@ out:
 
 static void parse_patch(const string &path,
 			git_repository *repo, git_tree *tree,
-			map<string, string> &results)
+			map<string, string> &results,
+			set<string> blacklist)
 {
 	string committer = "Unknown";
 	vector<string> commit_ids;
@@ -187,8 +189,13 @@ static void parse_patch(const string &path,
 
 		token = to_lower(line.substr(0, pos));
 
-		if (token == "git-commit") {
+		if (token == "git-commit" || token == "no-fix") {
 			string id;
+
+			pos = line.find_first_of("#");
+			if (pos != string::npos)
+				line = line.substr(0, pos);
+
 			if (pos + 40 > len)
 				continue;
 
@@ -196,8 +203,13 @@ static void parse_patch(const string &path,
 			if (id.length() != 40)
 				continue;
 
-			if (is_hex(id))
-				commit_ids.push_back(id);
+			if (!is_hex(id))
+				continue;
+
+			if (token == "git-commit")
+				commit_ids.emplace_back(id);
+			else
+				blacklist.emplace(id);
 
 		} else if (token == "signed-off-by" || token == "acked-by") {
 			vector<string> items;
@@ -237,9 +249,28 @@ static void parse_patch(const string &path,
 		results[it] = committer;
 }
 
+static void parse_blacklist(string &content, set<string> &blacklist)
+{
+	istringstream is(content);
+	string line;
+
+	while (getline(is, line)) {
+		auto pos = line.find_first_of('#');
+
+		if (pos != string::npos)
+			line = line.substr(0, pos);
+
+		line = trim(line);
+
+		if (line.length() == 40 && is_hex(line))
+			blacklist.emplace(line);
+	}
+}
+
 static void parse_series(const string& series,
 			 git_repository *repo, git_tree *tree,
-			 map<string, string> &results)
+			 map<string, string> &results,
+			 set<string> blacklist)
 {
 	istringstream is(series);
 	string line;
@@ -267,17 +298,20 @@ static void parse_series(const string& series,
 		if (!path.length())
 			continue;
 
-		parse_patch(path, repo, tree, results);
+		parse_patch(path, repo, tree, results, blacklist);
 	}
 }
 
 static int handle_revision(git_repository *repo, const char *revision,
-			   const string& outfile, map<string, string> &results)
+			   const string& outfile,
+			   map<string, string> &results,
+			   set<string> blacklist)
 {
 	git_commit *commit;
 	git_object *obj;
 	git_tree *tree;
 	string series;
+	string blist;
 	int error;
 
 	error = git_revparse_single(&obj, repo, revision);
@@ -292,11 +326,15 @@ static int handle_revision(git_repository *repo, const char *revision,
 	if (error)
 		goto out_commit_free;
 
+	error = blob_content(blist, "blacklist.conf", repo, tree);
+	if (!error)
+		parse_blacklist(blist, blacklist);
+
 	error = blob_content(series, "series.conf", repo, tree);
 	if (error)
 		goto out_free_tree;
 
-	parse_series(series, repo, tree, results);
+	parse_series(series, repo, tree, results, blacklist);
 
 out_free_tree:
 	git_tree_free(tree);
@@ -425,6 +463,7 @@ int main(int argc, char **argv)
 	ios_base::openmode file_mode = ios_base::out;
 	map<string, string> results, base;
 	git_repository *repo = NULL;
+	set<string> blacklist;
 	const git_error *e;
 	ofstream of;
 	ostream *os;
@@ -458,12 +497,13 @@ int main(int argc, char **argv)
 		goto error;
 
 	if (diff_mode) {
-		error = handle_revision(repo, base_rev.c_str(), file_name, base);
+		error = handle_revision(repo, base_rev.c_str(), file_name, base, blacklist);
 		if (error)
 			goto error;
 	}
 
-	error = handle_revision(repo, revision.c_str(), file_name, results);
+	error = handle_revision(repo, revision.c_str(), file_name,
+				results, blacklist);
 	if (error)
 		goto error;
 
