@@ -233,10 +233,8 @@ static void parse_patch(const string &path,
 		}
 	}
 
-	for (vector<string>::iterator it = commit_ids.begin();
-	     it != commit_ids.end();
-	     ++it)
-		results[*it] = committer;
+	for (auto &it : commit_ids)
+		results[it] = committer;
 }
 
 static void parse_series(const string& series,
@@ -408,21 +406,17 @@ static void parse_options(int argc, char **argv)
 
 static void write_results(ostream &os, map<string, string> &results)
 {
-	for (map<string, string>::iterator it = results.begin();
-	     it != results.end();
-	     ++it)
-		os << it->first << ',' << it->second << endl;
+	for (auto &it : results)
+		os << it.first << ',' << it.second << endl;
 }
 
 static void do_diff(map<string, string> &result,
 		    const map<string, string> &base,
 		    const map<string, string> &branch)
 {
-	for (map<string, string>::const_iterator it = branch.begin();
-	     it != branch.end();
-	     ++it) {
-		if (base.find(it->first) == base.end())
-			result[it->first] = it->second;
+	for (const auto &it : branch) {
+		if (base.find(it.first) == base.end())
+			result[it.first] = it.second;
 	}
 }
 
