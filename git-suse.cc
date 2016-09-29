@@ -193,9 +193,9 @@ static void parse_patch(const string &path,
 		if (token == "git-commit" || token == "no-fix") {
 			string id;
 
-			pos = line.find_first_of("#");
-			if (pos != string::npos)
-				line = line.substr(0, pos);
+			auto pos2 = line.find_first_of("#");
+			if (pos2 != string::npos)
+				line = line.substr(0, pos2);
 
 			if (pos + 40 > len)
 				continue;
