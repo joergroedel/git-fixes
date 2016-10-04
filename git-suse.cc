@@ -264,7 +264,7 @@ static void parse_blacklist(string &content, set<string> &blacklist)
 		line = trim(line);
 
 		if (line.length() == 40 && is_hex(line))
-			blacklist.emplace(line);
+			blacklist.emplace(to_lower(line));
 	}
 }
 
