@@ -36,6 +36,7 @@ struct options {
 	string committer;
 	string fixes_file;
 	string bl_file;
+	string bl_path_file;
 	string db;
 	bool all_cmdline;
 	bool all;
@@ -49,6 +50,7 @@ struct options {
 	bool no_blacklist;
 	bool parsable;
 	vector<string> path;
+	vector<string> bl_path;
 };
 
 struct commit {
@@ -511,6 +513,36 @@ static void load_blacklist_file(const string &filename)
 	sort(blacklist.begin(), blacklist.end());
 }
 
+static void load_bl_path_file(const string &filename, struct options *opts)
+{
+	ifstream file;
+
+	if (filename == "")
+		return;
+
+	file.open(filename.c_str());
+
+	if (!file.is_open())
+		return;
+
+	while (!file.eof()) {
+		string line;
+
+		getline(file, line);
+
+		auto pos = line.find_first_of("#");
+		if (pos != string::npos)
+			line = line.substr(0, pos);
+
+		line = trim(line);
+
+		if (line != "")
+			opts->bl_path.emplace_back(line);
+	}
+
+	file.close();
+}
+
 static bool write_blacklist_file(const string &filename)
 {
 	ofstream file;
@@ -784,6 +816,9 @@ static int load_defaults_from_git(git_repository *repo, struct options *opts)
 	if (opts->fixes_file == "")
 		opts->fixes_file = config_get_path_nofail(repo_cfg, "fixes.file");
 
+	if (opts->bl_path_file == "")
+		opts->bl_path_file = config_get_path_nofail(repo_cfg, "path_blacklist");
+
 	if (!opts->all_cmdline) {
 		error = git_config_get_bool(&val, repo_cfg, "fixes.all");
 		if (!error)
@@ -816,28 +851,30 @@ enum {
 	OPTION_DATA_BASE,
 	OPTION_STATS,
 	OPTION_PARSABLE,
+	OPTION_PATH_BLACKLIST,
 };
 
 static struct option options[] = {
-	{ "help",		no_argument,		0, OPTION_HELP         },
-	{ "all",		no_argument,		0, OPTION_ALL          },
-	{ "repo",		required_argument,	0, OPTION_REPO         },
-	{ "me",			no_argument,		0, OPTION_ME           },
-	{ "reverse",		no_argument,		0, OPTION_REVERSE      },
-	{ "committer",		required_argument,	0, OPTION_COMMITTER    },
-	{ "grouping",		no_argument,		0, OPTION_GROUPING     },
-	{ "no-grouping",	no_argument,		0, OPTION_NO_GROUPING  },
-	{ "stable",		no_argument,		0, OPTION_STABLE       },
-	{ "no-stable",		no_argument,		0, OPTION_NO_STABLE    },
-	{ "match-all",		no_argument,		0, OPTION_MATCH_ALL    },
-	{ "data-base",		required_argument,	0, OPTION_DATA_BASE    },
-	{ "file",		required_argument,	0, OPTION_FILE         },
-	{ "blacklist",		required_argument,	0, OPTION_BLACKLIST    },
-	{ "no-blacklist",	no_argument,		0, OPTION_NO_BLACKLIST },
-	{ "Blacklist",		required_argument,	0, OPTION_ADD_BL       },
-	{ "stats",		no_argument,		0, OPTION_STATS        },
-	{ "parsable",		no_argument,		0, OPTION_PARSABLE     },
-	{ 0,			0,			0, 0                   }
+	{ "help",		no_argument,		0, OPTION_HELP           },
+	{ "all",		no_argument,		0, OPTION_ALL            },
+	{ "repo",		required_argument,	0, OPTION_REPO           },
+	{ "me",			no_argument,		0, OPTION_ME             },
+	{ "reverse",		no_argument,		0, OPTION_REVERSE        },
+	{ "committer",		required_argument,	0, OPTION_COMMITTER      },
+	{ "grouping",		no_argument,		0, OPTION_GROUPING       },
+	{ "no-grouping",	no_argument,		0, OPTION_NO_GROUPING    },
+	{ "stable",		no_argument,		0, OPTION_STABLE         },
+	{ "no-stable",		no_argument,		0, OPTION_NO_STABLE      },
+	{ "match-all",		no_argument,		0, OPTION_MATCH_ALL      },
+	{ "data-base",		required_argument,	0, OPTION_DATA_BASE      },
+	{ "file",		required_argument,	0, OPTION_FILE           },
+	{ "blacklist",		required_argument,	0, OPTION_BLACKLIST      },
+	{ "no-blacklist",	no_argument,		0, OPTION_NO_BLACKLIST   },
+	{ "Blacklist",		required_argument,	0, OPTION_ADD_BL         },
+	{ "stats",		no_argument,		0, OPTION_STATS          },
+	{ "parsable",		no_argument,		0, OPTION_PARSABLE       },
+	{ "path-blacklist",	required_argument,	0, OPTION_PATH_BLACKLIST },
+	{ 0,			0,			0, 0                     }
 };
 
 static void usage(const char *prg)
@@ -862,6 +899,7 @@ static void usage(const char *prg)
 	printf("  --Blacklist, -B  Add commit to blacklist\n");
 	printf("  --stats, -s      Print some statistics at the end\n");
 	printf("  --parsable, -p   Print machine readable output\n");
+	printf("  --path-blacklist Filename containing the path-blacklist\n");
 }
 
 static bool parse_options(struct options *opts, int argc, char **argv)
@@ -956,6 +994,9 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 			opts->parsable = true;
 			opts->no_group = true;
 			break;
+		case OPTION_PATH_BLACKLIST:
+			opts->bl_path_file = optarg;
+			break;
 		default:
 			usage(argv[0]);
 			return false;
@@ -1015,9 +1056,30 @@ static void bl_file(string &filename, git_repository *repo, struct options *opts
 	}
 }
 
+static void bl_path_file(string &filename, git_repository *repo, struct options *opts)
+{
+	if (opts->db.length() > 0) {
+		git_config *repo_cfg = NULL;
+		string key;
+		int error;
+
+		key = "fixes." + opts->db + ".path_blacklist";
+
+		error = git_repository_config(&repo_cfg, repo);
+		if (error < 0)
+			return;
+
+		filename = config_get_path_nofail(repo_cfg, key.c_str());
+
+		git_config_free(repo_cfg);
+	} else {
+		filename = opts->bl_file;
+	}
+}
+
 int main(int argc, char **argv)
 {
-	string filename, bl_filename;
+	string filename, bl_filename, bl_path_fname;
 	git_repository *repo = NULL;
 	struct options opts;
 	const git_error *e;
@@ -1045,6 +1107,9 @@ int main(int argc, char **argv)
 
 	bl_file(bl_filename, repo, &opts);
 	load_blacklist_file(bl_filename);
+
+	bl_path_file(bl_path_fname, repo, &opts);
+	load_bl_path_file(bl_path_fname, &opts);
 
 	if (opts.write_bl) {
 		bool ret;
