@@ -189,10 +189,10 @@ static int diff_file_cb(const git_diff_delta *delta, float progess, void *data)
 static int match_parent_tree(git_commit *commit, size_t p,
 			     git_diff_options *diffopts)
 {
+	bool b_listed = false;
 	git_commit *parent;
 	git_tree *a, *b;
 	git_diff *diff;
-	bool b_listed;
 	int err;
 
 	err = git_commit_parent(&parent, commit, p);
@@ -211,8 +211,10 @@ static int match_parent_tree(git_commit *commit, size_t p,
 	if (err < 0)
 		goto out_free_b;
 
-	b_listed = true;
-	err = git_diff_foreach(diff, diff_file_cb, NULL, NULL, &b_listed);
+	if (bl_pathspec) {
+		b_listed = true;
+		git_diff_foreach(diff, diff_file_cb, NULL, NULL, &b_listed);
+	}
 
 	err = git_diff_num_deltas(diff) > 0 ? 1 : 0;
 
@@ -708,6 +710,7 @@ out_free:
 static bool init_diffopts(git_diff_options *diffopts, struct options *opts)
 {
 	git_strarray arr;
+	bool ret = true;
 
 	if (vec2strarray(diffopts->pathspec, opts->path))
 		return false;
@@ -715,13 +718,18 @@ static bool init_diffopts(git_diff_options *diffopts, struct options *opts)
 	if (vec2strarray(arr, opts->bl_path))
 		return false;
 
-	auto err = git_pathspec_new(&bl_pathspec, &arr);
-	if (err)
-		return false;
+	if (arr.count) {
+		auto err = git_pathspec_new(&bl_pathspec, &arr);
+		if (err) {
+			ret = false;
+			goto out_free;
+		}
+	}
 
+out_free:
 	git_strarray_free(&arr);
 
-	return true;
+	return ret;
 }
 
 static int fixes(git_repository *repo, struct options *opts)
@@ -776,7 +784,8 @@ static int fixes(git_repository *repo, struct options *opts)
 	}
 
 	destroy_diffopts(&diffopts);
-	git_pathspec_free(bl_pathspec);
+	if (bl_pathspec)
+		git_pathspec_free(bl_pathspec);
 	git_revwalk_free(walker);
 
 	print_results(opts);
