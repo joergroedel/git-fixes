@@ -256,12 +256,12 @@ static void parse_blacklist(string &content, set<string> &blacklist)
 	string line;
 
 	while (getline(is, line)) {
-		auto pos = line.find_first_of('#');
+		line = trim(line);
+
+		auto pos = line.find_first_of("# \n\t\r");
 
 		if (pos != string::npos)
 			line = line.substr(0, pos);
-
-		line = trim(line);
 
 		if (line.length() == 40 && is_hex(line))
 			blacklist.emplace(to_lower(line));
