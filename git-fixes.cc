@@ -239,7 +239,7 @@ static bool match_tree(git_commit *commit, git_diff_options *diffopts)
 	bool ret = false;
 	int err;
 
-	if (diffopts->pathspec.count <= 0)
+	if (diffopts->pathspec.count <= 0 && bl_pathspec == NULL)
 		return true;
 
 	parents = git_commit_parentcount(commit);
