@@ -25,6 +25,7 @@
 using namespace std;
 
 /* Options */
+string path_blacklist_file;
 string revision = "HEAD";
 string repo_path = ".";
 bool diff_mode = false;
@@ -250,12 +251,15 @@ static void parse_patch(const string &path,
 		results[it] = committer;
 }
 
-static void parse_blacklist(string &content, set<string> &blacklist)
+static void parse_blacklist(string &content,
+			    set<string> &blacklist,
+			    vector<string> &path_blacklist)
 {
 	istringstream is(content);
 	string line;
 
 	while (getline(is, line)) {
+
 		line = trim(line);
 
 		auto pos = line.find_first_of("# \n\t\r");
@@ -265,6 +269,8 @@ static void parse_blacklist(string &content, set<string> &blacklist)
 
 		if (line.length() == 40 && is_hex(line))
 			blacklist.emplace(to_lower(line));
+		else if (line.length() > 0)
+			path_blacklist.emplace_back(line);
 	}
 }
 
@@ -306,7 +312,8 @@ static void parse_series(const string& series,
 static int handle_revision(git_repository *repo, const char *revision,
 			   const string& outfile,
 			   map<string, string> &results,
-			   set<string> &blacklist)
+			   set<string> &blacklist,
+			   vector<string> &path_blacklist)
 {
 	git_commit *commit;
 	git_object *obj;
@@ -329,7 +336,7 @@ static int handle_revision(git_repository *repo, const char *revision,
 
 	error = blob_content(blist, "blacklist.conf", repo, tree);
 	if (!error)
-		parse_blacklist(blist, blacklist);
+		parse_blacklist(blist, blacklist, path_blacklist);
 
 	error = blob_content(series, "series.conf", repo, tree);
 	if (error)
@@ -368,17 +375,19 @@ enum {
 	OPTION_APPEND,
 	OPTION_STDOUT,
 	OPTION_BLACKLIST,
+	OPTION_PATH_BLACKLIST,
 };
 
 static struct option options[] = {
-	{ "help",		no_argument,		0, OPTION_HELP        },
-	{ "repo",		required_argument,	0, OPTION_REPO        },
-	{ "file",		required_argument,	0, OPTION_FILE        },
-	{ "base",		required_argument,	0, OPTION_BASE        },
-	{ "append",		no_argument,		0, OPTION_APPEND      },
-	{ "stdout",		no_argument,		0, OPTION_STDOUT      },
-	{ "blacklist",		required_argument,	0, OPTION_BLACKLIST   },
-	{ 0,			0,			0, 0                  }
+	{ "help",		no_argument,		0, OPTION_HELP           },
+	{ "repo",		required_argument,	0, OPTION_REPO           },
+	{ "file",		required_argument,	0, OPTION_FILE           },
+	{ "base",		required_argument,	0, OPTION_BASE           },
+	{ "append",		no_argument,		0, OPTION_APPEND         },
+	{ "stdout",		no_argument,		0, OPTION_STDOUT         },
+	{ "blacklist",		required_argument,	0, OPTION_BLACKLIST      },
+	{ "path-blacklist",	required_argument,	0, OPTION_PATH_BLACKLIST },
+	{ 0,			0,			0, 0                     }
 };
 
 static void usage(const char *prg)
@@ -389,6 +398,7 @@ static void usage(const char *prg)
 	printf("  --repo, -r       Path to git repository\n");
 	printf("  --file, -f       Write output to specified file\n");
 	printf("  --blacklist      Write blacklist to specified file\n");
+	printf("  --path-blacklist Write path-blacklist to specified file\n");
 	printf("  --base, -b       Show only commits not in given base version\n");
 	printf("  --append         Open output file in append mode\n");
 	printf("  --stdout, -c     Write output to stdout\n");
@@ -439,6 +449,9 @@ static void parse_options(int argc, char **argv)
 		case OPTION_BLACKLIST:
 			blacklist_file = optarg;
 			break;
+		case OPTION_PATH_BLACKLIST:
+			path_blacklist_file = optarg;
+			break;
 		default:
 			usage(argv[0]);
 			exit(1);
@@ -471,6 +484,29 @@ static void write_blacklist(set<string> &blacklist)
 	file.close();
 }
 
+static void write_path_blacklist(vector<string> &path_blacklist)
+{
+	ofstream file;
+
+	if (path_blacklist_file == "")
+		return;
+
+	file.open(path_blacklist_file.c_str());
+
+	if (!file.is_open()) {
+		fprintf(stderr, "Can't open path-blacklist file for writing\n");
+		return;
+	}
+
+	for (auto &path : path_blacklist)
+		file << path << std::endl;
+
+	cout << "Wrote " << path_blacklist.size() << " blacklisted paths to "
+	     << path_blacklist_file << endl;
+
+	file.close();
+}
+
 static void write_results(ostream &os, map<string, string> &results)
 {
 	for (auto &it : results)
@@ -491,6 +527,7 @@ int main(int argc, char **argv)
 {
 	ios_base::openmode file_mode = ios_base::out;
 	map<string, string> results, base;
+	vector<string> path_blacklist;
 	git_repository *repo = NULL;
 	set<string> blacklist;
 	const git_error *e;
@@ -526,15 +563,17 @@ int main(int argc, char **argv)
 		goto error;
 
 	if (diff_mode) {
+		vector<string> ignored2;
 		set<string> ignored;
 
-		error = handle_revision(repo, base_rev.c_str(), file_name, base, ignored);
+		error = handle_revision(repo, base_rev.c_str(), file_name, base,
+					ignored, ignored2);
 		if (error)
 			goto error;
 	}
 
 	error = handle_revision(repo, revision.c_str(), file_name,
-				results, blacklist);
+				results, blacklist, path_blacklist);
 	if (error)
 		goto error;
 
@@ -551,6 +590,7 @@ int main(int argc, char **argv)
 		cout << "Wrote " << results.size() << " commits to " << file_name << endl;
 
 	write_blacklist(blacklist);
+	write_path_blacklist(path_blacklist);
 
 out:
 	if (of.is_open())
