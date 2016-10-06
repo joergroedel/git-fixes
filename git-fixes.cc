@@ -172,12 +172,26 @@ static bool is_blacklisted(const string &commit_id)
 	return (it != blacklist.end() && *it == commit_id);
 }
 
+static int diff_file_cb(const git_diff_delta *delta, float progess, void *data)
+{
+	bool *match = (bool *)data;
+
+	if (!git_pathspec_matches_path(bl_pathspec, GIT_PATHSPEC_DEFAULT, delta->old_file.path))
+		*match = false;
+
+	if (!git_pathspec_matches_path(bl_pathspec, GIT_PATHSPEC_DEFAULT, delta->new_file.path))
+		*match = false;
+
+	return 0;
+}
+
 static int match_parent_tree(git_commit *commit, size_t p,
 			     git_diff_options *diffopts)
 {
 	git_commit *parent;
 	git_tree *a, *b;
 	git_diff *diff;
+	bool blisted;
 	int err;
 
 	err = git_commit_parent(&parent, commit, p);
@@ -196,7 +210,13 @@ static int match_parent_tree(git_commit *commit, size_t p,
 	if (err < 0)
 		goto out_free_b;
 
+	blisted = true;
+	err = git_diff_foreach(diff, diff_file_cb, NULL, NULL, &blisted);
+
 	err = git_diff_num_deltas(diff) > 0 ? 1 : 0;
+
+	if (blisted)
+		err = 0;
 
 	git_diff_free(diff);
 out_free_b:
