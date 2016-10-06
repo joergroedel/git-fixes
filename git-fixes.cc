@@ -85,6 +85,7 @@ struct match_info {
 vector<struct match_info> match_list;
 map<string, vector<commit> > results;
 vector<string> blacklist;
+git_pathspec *bl_pathspec;
 
 static bool is_hex(const string &s)
 {
@@ -647,25 +648,57 @@ static void destroy_diffopts(git_diff_options *diffopts)
 	diffopts->pathspec.count = 0;
 }
 
-static bool init_diffopts(git_diff_options *diffopts, struct options *opts)
+int vec2strarray(git_strarray &arr, vector<string> &vec)
 {
-	unsigned count = opts->path.size();
+	auto count = vec.size();
+	decltype(count) i = 0;
 
-	if (count) {
-		diffopts->pathspec.strings = (char **)malloc(count * sizeof(char*));
-		if (!diffopts->pathspec.strings)
-			return false;
+	arr.strings = NULL;
+	arr.count   = 0;
 
-		for (unsigned i = 0; i < count; ++i) {
-			diffopts->pathspec.strings[i] = strdup(opts->path[i].c_str());
-			if (!diffopts->pathspec.strings[i]) {
-				destroy_diffopts(diffopts);
-				return false;
-			}
-		}
+	if (count == 0)
+		return 0;
+
+	arr.strings = (char **)malloc(count * sizeof(char *));
+	if (!arr.strings)
+		return -1;
+
+	for (;i < count; ++i) {
+		arr.strings[i] = strdup(vec[i].c_str());
+		if (!arr.strings[i])
+			goto out_free;
 	}
 
-	diffopts->pathspec.count = count;
+	arr.count = count;
+
+	return 0;
+
+out_free:
+
+	for (decltype(i) j = 0; j < i; ++j)
+		free(arr.strings[j]);
+
+	free(arr.strings);
+	arr.strings = 0;
+
+	return -1;
+}
+
+static bool init_diffopts(git_diff_options *diffopts, struct options *opts)
+{
+	git_strarray arr;
+
+	if (vec2strarray(diffopts->pathspec, opts->path))
+		return false;
+
+	if (vec2strarray(arr, opts->bl_path))
+		return false;
+
+	auto err = git_pathspec_new(&bl_pathspec, &arr);
+	if (err)
+		return false;
+
+	git_strarray_free(&arr);
 
 	return true;
 }
@@ -722,6 +755,7 @@ static int fixes(git_repository *repo, struct options *opts)
 	}
 
 	destroy_diffopts(&diffopts);
+	git_pathspec_free(bl_pathspec);
 	git_revwalk_free(walker);
 
 	print_results(opts);
