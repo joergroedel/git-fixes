@@ -57,6 +57,7 @@ struct commit {
 	string subject;
 	string context;
 	string id;
+	string path;
 	bool stable;
 	vector<struct reference> refs;
 
@@ -75,6 +76,7 @@ struct reference {
 struct match_info {
 	string commit_id;
 	string committer;
+	string path;
 
 	bool operator<(const struct match_info &i) const
 	{
@@ -312,7 +314,8 @@ static bool match_commit(const struct commit &c, const string &id,
 		string key = opts->no_group ? "default" : it->committer;
 
 		__commit.context = it->committer;
-		results[key].push_back(__commit);
+		__commit.path    = it->path;
+		results[key].emplace_back(__commit);
 	}
 
 	return ret;
@@ -443,8 +446,8 @@ static void print_results(struct options *opts)
 
 		if (opts->parsable) {
 			for (i = r->second.begin(); i != r->second.end(); ++i) {
-				printf("%s;%s;%s\n", i->context.c_str(),
-					i->id.c_str(), i->subject.c_str());
+				printf("%s;%s;%s;%s\n", i->context.c_str(),
+					i->id.c_str(), i->path.c_str(), i->subject.c_str());
 			}
 		} else {
 			if (!opts->no_group)
@@ -491,7 +494,7 @@ static bool load_commit_file(const char *filename, vector<struct match_info> &co
 		vector<string> tokens;
 		int num;
 
-		num = split_trim(tokens, ",", line, 2);
+		num = split_trim(tokens, ",", line, 3);
 
 		if (!num)
 			continue;
@@ -499,8 +502,10 @@ static bool load_commit_file(const char *filename, vector<struct match_info> &co
 		info.commit_id = to_lower(tokens[0]);
 		if (num > 1)
 			info.committer = tokens[1];
+		if (num > 2)
+			info.path      = tokens[2];
 
-		commits.push_back(info);
+		commits.emplace_back(info);
 	}
 
 	sort(commits.begin(), commits.end());
