@@ -37,6 +37,12 @@ string base_rev;
 
 map<string, bool> blob_id_cache;
 
+struct patch_info {
+	string context;
+};
+
+using results_type = map<string, patch_info>;
+
 static bool is_hex(const string &s)
 {
 	for (string::const_iterator c = s.begin(); c != s.end(); ++c) {
@@ -164,7 +170,7 @@ out:
 
 static void parse_patch(const string &path,
 			git_repository *repo, git_tree *tree,
-			map<string, string> &results,
+			results_type &results,
 			set<string> &blacklist)
 {
 	string committer = "Unknown";
@@ -248,7 +254,7 @@ static void parse_patch(const string &path,
 	}
 
 	for (auto &it : commit_ids)
-		results[it] = committer;
+		results[it].context = committer;
 }
 
 static void parse_blacklist(string &content,
@@ -276,7 +282,7 @@ static void parse_blacklist(string &content,
 
 static void parse_series(const string& series,
 			 git_repository *repo, git_tree *tree,
-			 map<string, string> &results,
+			 results_type &results,
 			 set<string> &blacklist)
 {
 	istringstream is(series);
@@ -311,7 +317,7 @@ static void parse_series(const string& series,
 
 static int handle_revision(git_repository *repo, const char *revision,
 			   const string& outfile,
-			   map<string, string> &results,
+			   results_type &results,
 			   set<string> &blacklist,
 			   vector<string> &path_blacklist)
 {
@@ -507,15 +513,15 @@ static void write_path_blacklist(vector<string> &path_blacklist)
 	file.close();
 }
 
-static void write_results(ostream &os, map<string, string> &results)
+static void write_results(ostream &os, results_type &results)
 {
 	for (auto &it : results)
-		os << it.first << ',' << it.second << endl;
+		os << it.first << ',' << it.second.context << endl;
 }
 
-static void do_diff(map<string, string> &result,
-		    const map<string, string> &base,
-		    const map<string, string> &branch)
+static void do_diff(results_type &result,
+		    const results_type &base,
+		    const results_type &branch)
 {
 	for (const auto &it : branch) {
 		if (base.find(it.first) == base.end())
@@ -526,7 +532,7 @@ static void do_diff(map<string, string> &result,
 int main(int argc, char **argv)
 {
 	ios_base::openmode file_mode = ios_base::out;
-	map<string, string> results, base;
+	results_type results, base;
 	vector<string> path_blacklist;
 	git_repository *repo = NULL;
 	set<string> blacklist;
@@ -578,7 +584,7 @@ int main(int argc, char **argv)
 		goto error;
 
 	if (diff_mode) {
-		map<string, string> r;
+		results_type r;
 
 		do_diff(r, base, results);
 		write_results(*os, r);
