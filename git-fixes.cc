@@ -49,6 +49,7 @@ struct options {
 	bool write_bl;
 	bool no_blacklist;
 	bool parsable;
+	bool patch;
 	vector<string> path;
 	vector<string> bl_path;
 };
@@ -457,6 +458,8 @@ static void print_results(struct options *opts)
 				printf("%s%s %s\n", prefix,
 						i->id.substr(0,12).c_str(),
 						i->subject.c_str());
+				if (opts->patch && i->path != "")
+					printf("%s  (Fixes %s)\n", prefix, i->path.c_str());
 			}
 			if (!opts->no_group)
 				printf("\n");
@@ -868,6 +871,7 @@ static void set_defaults(struct options *opts)
 	opts->write_bl     = false;
 	opts->no_blacklist = false;
 	opts->parsable     = false;
+	opts->patch        = false;
 }
 
 static int load_defaults_from_git(git_repository *repo, struct options *opts)
@@ -921,6 +925,7 @@ enum {
 	OPTION_STATS,
 	OPTION_PARSABLE,
 	OPTION_PATH_BLACKLIST,
+	OPTION_PATCH,
 };
 
 static struct option options[] = {
@@ -943,6 +948,7 @@ static struct option options[] = {
 	{ "stats",		no_argument,		0, OPTION_STATS          },
 	{ "parsable",		no_argument,		0, OPTION_PARSABLE       },
 	{ "path-blacklist",	required_argument,	0, OPTION_PATH_BLACKLIST },
+	{ "patch",		no_argument,		0, OPTION_PATCH          },
 	{ 0,			0,			0, 0                     }
 };
 
@@ -969,6 +975,7 @@ static void usage(const char *prg)
 	printf("  --stats, -s      Print some statistics at the end\n");
 	printf("  --parsable, -p   Print machine readable output\n");
 	printf("  --path-blacklist Filename containing the path-blacklist\n");
+	printf("  --patch          Print patch-filename the fix is for (if available)\n");
 }
 
 static bool parse_options(struct options *opts, int argc, char **argv)
@@ -1065,6 +1072,9 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 			break;
 		case OPTION_PATH_BLACKLIST:
 			opts->bl_path_file = optarg;
+			break;
+		case OPTION_PATCH:
+			opts->patch = true;
 			break;
 		default:
 			usage(argv[0]);
