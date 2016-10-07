@@ -39,6 +39,7 @@ map<string, bool> blob_id_cache;
 
 struct patch_info {
 	string context;
+	string path;
 };
 
 using results_type = map<string, patch_info>;
@@ -253,8 +254,10 @@ static void parse_patch(const string &path,
 		}
 	}
 
-	for (auto &it : commit_ids)
+	for (auto &it : commit_ids) {
 		results[it].context = committer;
+		results[it].path = path;
+	}
 }
 
 static void parse_blacklist(string &content,
@@ -515,8 +518,12 @@ static void write_path_blacklist(vector<string> &path_blacklist)
 
 static void write_results(ostream &os, results_type &results)
 {
-	for (auto &it : results)
-		os << it.first << ',' << it.second.context << endl;
+	for (auto &it : results) {
+		os << it.first << ',' << it.second.context;
+		if (it.second.path.length() > 0)
+			os << ',' << it.second.path;
+		os << endl;
+	}
 }
 
 static void do_diff(results_type &result,
