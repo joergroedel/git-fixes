@@ -216,7 +216,11 @@ static int match_parent_tree(git_commit *commit, size_t p,
 
 	if (bl_pathspec) {
 		b_listed = true;
+#if LIBGIT2_VER_MAJOR == 0 && LIBGIT2_VER_MINOR < 23
 		git_diff_foreach(diff, diff_file_cb, NULL, NULL, &b_listed);
+#else
+		git_diff_foreach(diff, diff_file_cb, NULL, NULL, NULL, &b_listed);
+#endif
 	}
 
 	err = git_diff_num_deltas(diff) > 0 ? 1 : 0;
