@@ -33,7 +33,7 @@ $(STATIC_LIBGIT2):
 	git submodule init
 	git submodule update
 	mkdir -p build
-	(cd build;cmake -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DBUILD_CLAR=OFF ../libgit2;cmake --build .)
+	(cd build;cmake -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DBUILD_CLAR=OFF -DUSE_SSH=OFF ../libgit2;cmake --build .)
 
 install: $(TARGET_FIXES) $(TARGET_SUSE)
 	install -b -D -m 755 $(TARGET_FIXES) $(INSTALL_DIR)
