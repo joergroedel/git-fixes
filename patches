@@ -49,7 +49,7 @@ def parse_patch_file(file_name):
 				if is_git_commit(token):
 					temp_list.append(token);
 					break;
-		elif (token == 'SIGNED-OFF-BY' or token == 'ACKED-BY'):
+		elif token in ('SIGNED-OFF-BY', 'ACKED-BY', 'REVIEWED-BY',):
 			email = find_committer(parts.pop(0));
 			if (len(email) > 0):
 				committer = email;

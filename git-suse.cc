@@ -223,7 +223,8 @@ static void parse_patch(const string &path,
 			else
 				blacklist.emplace(id);
 
-		} else if (token == "signed-off-by" || token == "acked-by") {
+		} else if (token == "signed-off-by" || token == "acked-by" ||
+			   token == "reviewed-by") {
 			vector<string> items;
 
 			split_trim(items, " \t", line, 0);
