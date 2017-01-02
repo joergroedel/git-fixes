@@ -190,6 +190,9 @@ static void parse_patch(const string &path,
 		size_t len, pos;
 		string token;
 
+		if (line == "---")
+			break;
+
 		pos = line.find_first_of(":", 0);
 		if (pos == string::npos)
 			continue;

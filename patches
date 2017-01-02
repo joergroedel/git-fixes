@@ -35,6 +35,9 @@ def parse_patch_file(file_name):
 	temp_list = list();
 	committer = 'Unknown';
 	for line in fd:
+		if line == '---\n':
+			break;
+
 		parts = line.split(':');
 		if (len(parts) < 2):
 			continue;
@@ -46,11 +49,10 @@ def parse_patch_file(file_name):
 				if is_git_commit(token):
 					temp_list.append(token);
 					break;
-		if (token == 'SIGNED-OFF-BY' or token == 'ACKED-BY'):
+		elif (token == 'SIGNED-OFF-BY' or token == 'ACKED-BY'):
 			email = find_committer(parts.pop(0));
 			if (len(email) > 0):
 				committer = email;
-				continue;
 
 	fd.close();
 
