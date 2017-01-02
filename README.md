@@ -56,7 +56,7 @@ is part of this repository. Go to the kernel-source directory and call
 Now you created a file with all backported commits in the current
 kernel-source branch. Now you can go to a linux git-tree and try
 
-	$ git-fixes -f /tmp/suse-patches.list
+	$ git fixes -f /tmp/suse-patches.list
 
 This will create a list of commits from HEAD to the root-commit which
 reference any of the commits in /tmp/suse-patches.list, grouped by the
@@ -65,7 +65,7 @@ committer.
 To safe some time it is strongly recommended to limit the commit-range
 that is scanned. You can specify a revision range similar to git-log:
 
-	$ git-fixes -f /tmp/suse-patches.list v3.12..
+	$ git fixes -f /tmp/suse-patches.list v3.12..
 
 For more convenience you can put the commit-list file to a permanent
 place and tell git-fixes where to find it. Run this on your upstream git
@@ -81,8 +81,8 @@ files are also supported. When you set the config like this:
 
 you can run
 
-	$ git-fixes -d sle11sp4
-	$ git-fixes -d sle12sp1
+	$ git fixes -d sle11sp4
+	$ git fixes -d sle12sp1
 
 and check against different commit-lists. 
 
