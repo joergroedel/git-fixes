@@ -193,31 +193,30 @@ static void parse_patch(const string &path,
 		if (line == "---")
 			break;
 
-		pos = line.find_first_of(":", 0);
-		if (pos == string::npos)
-			continue;
-
 		len = line.length();
+		pos = line.find_first_of(":");
+		if (pos == string::npos || pos + 1 >= len)
+			continue;
 
 		token = to_lower(line.substr(0, pos));
 
 		if (token == "git-commit" || token == "no-fix") {
 			string id;
 
-			auto pos2 = line.find_first_of("#");
-			if (pos2 != string::npos)
-				line = line.substr(0, pos2);
-
-			if (pos + 40 > len)
+			pos = line.find_first_not_of(" ", pos + 1);
+			if (pos == string::npos)
 				continue;
 
-			id = to_lower(trim(line.substr(pos + 1)));
-			if (id.length() != 40)
+			line = to_lower(line);
+			auto pos2 = line.find_first_not_of("0123456789abcdef",
+							   pos);
+			if (pos2 == string::npos)
+				pos2 = line.length();
+
+			if (pos2 - pos != 40)
 				continue;
 
-			if (!is_hex(id))
-				continue;
-
+			id = line.substr(pos, pos2 - pos);
 			if (token == "git-commit")
 				commit_ids.emplace_back(id);
 			else

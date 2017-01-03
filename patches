@@ -38,14 +38,13 @@ def parse_patch_file(file_name):
 		if line == '---\n':
 			break;
 
-		parts = line.split(':');
+		parts = line.split(':', 1);
 		if (len(parts) < 2):
 			continue;
 		token = parts.pop(0);
 		token = token.upper();
 		if (token == 'GIT-COMMIT'):
-			for token in parts:
-				token = token.strip();
+			for token in parts.pop(0).split():
 				if is_git_commit(token):
 					temp_list.append(token);
 					break;
