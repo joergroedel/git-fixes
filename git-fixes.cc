@@ -60,6 +60,9 @@ struct commit {
 	string id;
 	string path;
 	bool stable;
+	bool revert;
+	string revert_id;
+
 	vector<struct reference> refs;
 
 	commit() : stable(false) { };
@@ -331,7 +334,7 @@ static bool isdelim(int c)
 	return isblank(c) || c == ':';
 }
 
-static void parse_line(const string &line, vector<struct reference> &commits)
+static void parse_line(const string &line, struct commit &cm)
 {
 	bool found_commit = false;
 	string::const_iterator c;
@@ -340,6 +343,16 @@ static void parse_line(const string &line, vector<struct reference> &commits)
 
 	if (line.length() >= 6 && to_lower(line.substr(0,6)) == "fixes:")
 		commit.fixes = true;
+
+	if (line.length() == 61 &&
+	    line.substr(0,19) == "This reverts commit") {
+		string id = line.substr(20, 40);
+
+		if (is_hex(id)) {
+			cm.revert = true;
+			cm.revert_id = id;
+		}
+	}
 
 	for (c = line.begin(); c != line.end(); last_c = *c, ++c) {
 		bool hex = isxdigit(*c);
@@ -355,7 +368,7 @@ static void parse_line(const string &line, vector<struct reference> &commits)
 			int len = commit.id.length();
 
 			if (len >= 8 && len <= 40)
-				commits.push_back(commit);
+				cm.refs.push_back(commit);
 		}
 
 		if (found_commit && !hex) {
@@ -382,7 +395,7 @@ static void parse_commit_msg(struct commit &commit, const char *msg)
 		if (it->find("stable@kernel.org")      != string::npos ||
 		    it->find("stable@vger.kernel.org") != string::npos)
 			commit.stable = true;
-		parse_line(*it, commit.refs);
+		parse_line(*it, commit);
 	}
 }
 
@@ -406,6 +419,16 @@ static int handle_commit(git_commit *commit, git_repository *repo,
 	msg = git_commit_message(commit);
 	c.id = commit_id;
 	parse_commit_msg(c, msg);
+
+	if (c.revert) {
+		auto pos = results.find(c.revert_id);
+		if (pos != results.end()) {
+			// We found a revert for a previous fix, remove the
+			// previous fix from the list
+			results.erase(pos);
+			return 0;
+		}
+	}
 
 	error = 0;
 	if (c.refs.size() > 0) {
