@@ -60,8 +60,6 @@ struct commit {
 	string id;
 	string path;
 	bool stable;
-	bool revert;
-	string revert_id;
 
 	vector<struct reference> refs;
 
@@ -90,6 +88,7 @@ struct match_info {
 
 vector<struct match_info> match_list;
 map<string, vector<commit> > results;
+map<string, string> reverts;
 vector<string> blacklist;
 git_pathspec *bl_pathspec;
 
@@ -348,10 +347,8 @@ static void parse_line(const string &line, struct commit &cm)
 	    line.substr(0,19) == "This reverts commit") {
 		string id = line.substr(20, 40);
 
-		if (is_hex(id)) {
-			cm.revert = true;
-			cm.revert_id = id;
-		}
+		if (is_hex(id))
+			reverts[cm.id] = id;
 	}
 
 	for (c = line.begin(); c != line.end(); last_c = *c, ++c) {
@@ -419,16 +416,6 @@ static int handle_commit(git_commit *commit, git_repository *repo,
 	msg = git_commit_message(commit);
 	c.id = commit_id;
 	parse_commit_msg(c, msg);
-
-	if (c.revert) {
-		auto pos = results.find(c.revert_id);
-		if (pos != results.end()) {
-			// We found a revert for a previous fix, remove the
-			// previous fix from the list
-			results.erase(pos);
-			return 0;
-		}
-	}
 
 	error = 0;
 	if (c.refs.size() > 0) {
@@ -816,6 +803,23 @@ static int fixes(git_repository *repo, struct options *opts)
 
 		git_commit_free(commit);
 		match += err;
+	}
+
+	// Remove reverted commits from the fixes list
+	for (auto &r : reverts) {
+		auto pos = results.find(r.second);
+
+		if (pos == results.end())
+			// The reverted commit is not in the list of fixes
+			continue;
+
+		// Remove the commit from the list
+		results.erase(pos);
+
+		// Now check if the revert itself is in the fixes-list
+		pos = results.find(r.first);
+		if (pos != results.end())
+			results.erase(pos);
 	}
 
 	destroy_diffopts(&diffopts);
