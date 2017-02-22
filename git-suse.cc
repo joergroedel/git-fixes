@@ -30,12 +30,14 @@ string revision = "HEAD";
 string repo_path = ".";
 bool diff_mode = false;
 string blacklist_file;
+string path_map_file;
 bool std_out = false;
 bool append = false;
 string file_name;
 string base_rev;
 
 map<string, bool> blob_id_cache;
+map<string, map<string, int> > path_map;
 
 struct patch_info {
 	string context;
@@ -176,6 +178,7 @@ static void parse_patch(const string &path,
 {
 	string committer = "Unknown";
 	vector<string> commit_ids;
+	bool in_patch = false;
 	string content;
 	int error;
 
@@ -190,8 +193,43 @@ static void parse_patch(const string &path,
 		size_t len, pos;
 		string token;
 
-		if (line == "---")
-			break;
+		if (line == "---") {
+			in_patch = true;
+			if (path_map_file == "")
+				break;
+		}
+
+		if (in_patch) {
+			if (line.length() < 5)
+				continue;
+
+			string prefix = line.substr(0, 4);
+
+			if (prefix != "+++ ")
+				continue;
+
+			string path = line.substr(4);
+			auto pos = path.find_first_of("/");
+
+			if (pos != string::npos)
+				path = path.substr(pos + 1);
+
+			pos = path.find_first_of(" ");
+			if (pos != string::npos)
+				path = path.substr(0, pos);
+
+			while (true) {
+				path_map[path][committer] += 1;
+
+				pos = path.find_last_of("/");
+				if (pos == string::npos)
+					break;
+
+				path = path.substr(0, pos);
+			}
+
+			continue;
+		}
 
 		len = line.length();
 		pos = line.find_first_of(":");
@@ -388,6 +426,7 @@ enum {
 	OPTION_STDOUT,
 	OPTION_BLACKLIST,
 	OPTION_PATH_BLACKLIST,
+	OPTION_PATH_MAP,
 };
 
 static struct option options[] = {
@@ -399,6 +438,7 @@ static struct option options[] = {
 	{ "stdout",		no_argument,		0, OPTION_STDOUT         },
 	{ "blacklist",		required_argument,	0, OPTION_BLACKLIST      },
 	{ "path-blacklist",	required_argument,	0, OPTION_PATH_BLACKLIST },
+	{ "path-map",		required_argument,	0, OPTION_PATH_MAP       },
 	{ 0,			0,			0, 0                     }
 };
 
@@ -411,6 +451,7 @@ static void usage(const char *prg)
 	printf("  --file, -f       Write output to specified file\n");
 	printf("  --blacklist      Write blacklist to specified file\n");
 	printf("  --path-blacklist Write path-blacklist to specified file\n");
+	printf("  --path-map       Write path-map to specified file\n");
 	printf("  --base, -b       Show only commits not in given base version\n");
 	printf("  --append         Open output file in append mode\n");
 	printf("  --stdout, -c     Write output to stdout\n");
@@ -463,6 +504,9 @@ static void parse_options(int argc, char **argv)
 			break;
 		case OPTION_PATH_BLACKLIST:
 			path_blacklist_file = optarg;
+			break;
+		case OPTION_PATH_MAP:
+			path_map_file = optarg;
 			break;
 		default:
 			usage(argv[0]);
@@ -527,6 +571,30 @@ static void write_results(ostream &os, results_type &results)
 			os << ',' << it.second.path;
 		os << endl;
 	}
+}
+
+static void write_path_map(string filename)
+{
+	ofstream file;
+
+	if (filename == "")
+		return;
+
+	file.open(filename.c_str());
+
+	if (!file.is_open()) {
+		fprintf(stderr, "Can't open path-map file for writing\n");
+		return;
+	}
+
+	for (auto &path : path_map) {
+		file << path.first;
+		for (auto &m : path.second)
+			file << ';' << m.first << ":" << m.second;
+		file << endl;
+	}
+
+	file.close();
 }
 
 static void do_diff(results_type &result,
@@ -607,6 +675,7 @@ int main(int argc, char **argv)
 
 	write_blacklist(blacklist);
 	write_path_blacklist(path_blacklist);
+	write_path_map(path_map_file);
 
 out:
 	if (of.is_open())
