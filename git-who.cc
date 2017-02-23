@@ -178,6 +178,103 @@ static int load_path_map(void)
 
 	return 0;
 }
+static int diff_file_cb(const git_diff_delta *delta, float progess, void *data)
+{
+	paths.emplace(delta->new_file.path);
+
+	return 0;
+}
+
+static bool get_paths_from_commit(git_commit *commit, size_t idx)
+{
+	git_commit *parent;
+	git_tree *a, *b;
+	git_diff *diff;
+	int error;
+	bool ret;
+
+	ret = false;
+	error = git_commit_parent(&parent, commit, 0);
+	if (error)
+		goto out;
+
+	error = git_commit_tree(&a, parent);
+	if (error)
+		goto out_parent;
+
+	error = git_commit_tree(&b, commit);
+	if (error)
+		goto out_tree_a;
+
+	error = git_diff_tree_to_tree(&diff, git_commit_owner(commit), a, b, NULL);
+	if (error)
+		goto out_tree_b;
+
+#if LIBGIT2_VER_MAJOR == 0 && LIBGIT2_VER_MINOR < 23
+	error = git_diff_foreach(diff, diff_file_cb, NULL, NULL, NULL);
+#else
+	error = git_diff_foreach(diff, diff_file_cb, NULL, NULL, NULL, NULL);
+#endif
+	if (error)
+		goto out_diff;
+
+	ret = true;
+out_diff:
+	git_diff_free(diff);
+
+out_tree_b:
+	git_tree_free(b);
+
+out_tree_a:
+	git_tree_free(a);
+
+out_parent:
+	git_commit_free(parent);
+
+out:
+	return ret;
+}
+
+static bool get_paths_from_revision(git_repository *repo, std::string rev)
+{
+	unsigned int parents;
+	git_commit *commit;
+	git_object *obj;
+	int error;
+	bool ret;
+
+	error = git_revparse_single(&obj, repo, rev.c_str());
+	if (error)
+		return false;
+
+	ret = false;
+	error = git_commit_lookup(&commit, repo, git_object_id(obj));
+	if (error)
+		goto out_obj_free;
+
+	parents = git_commit_parentcount(commit);
+
+	if (parents == 0) {
+		// Ignore root-commits
+	} else if (parents == 1) {
+		// Normal commit, we care
+		ret = get_paths_from_commit(commit, 0);
+		if (!ret)
+			goto out_commit_free;
+	} else {
+		// Also ignore merge commits
+	}
+
+	ret = true;
+
+out_commit_free:
+	git_commit_free(commit);
+
+out_obj_free:
+	git_object_free(obj);
+
+	return ret;
+}
 
 static void match_paths(void)
 {
@@ -225,6 +322,9 @@ int main(int argc, char **argv)
 	error = git_repository_open(&repo, ".");
 	if (error < 0)
 		goto error;
+
+	if (revision != "")
+		get_paths_from_revision(repo, revision);
 
 	match_paths();
 
