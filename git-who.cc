@@ -60,6 +60,8 @@ struct people {
 };
 
 std::map<std::string, struct people> path_map;
+std::vector<std::string> ignore_params;
+std::map<std::string, bool> ignore;
 std::vector<std::string> params;
 std::set<std::string> paths;
 std::string repo_path = ".";
@@ -236,6 +238,7 @@ out_obj_free:
 
 static void match_paths(void)
 {
+	bool do_ignore = false;
 	struct people results;
 
 	for (auto path : paths) {
@@ -258,20 +261,38 @@ static void match_paths(void)
 
 	std::sort(results.persons.rbegin(), results.persons.rend());
 
-	for (auto &p : results.persons)
+	for (auto &p : results.persons) {
+		auto pos = ignore.find(p.name);
+
+		if (pos == ignore.end()) {
+			do_ignore = true;
+			break;
+		}
+	}
+
+	for (auto &p : results.persons) {
+		if (do_ignore) {
+			auto pos = ignore.find(p.name);
+			if (pos != ignore.end())
+				continue;
+		}
+
 		std::cout << p.name << " (" << p.count << ")" << std::endl;
+	}
 }
 
 enum {
 	OPTION_HELP,
 	OPTION_PATH_MAP,
 	OPTION_REPO,
+	OPTION_IGNORE,
 };
 
 static struct option options[] = {
 	{ "help",               no_argument,            0, OPTION_HELP           },
 	{ "path-map",           required_argument,      0, OPTION_PATH_MAP       },
 	{ "repo",               required_argument,      0, OPTION_REPO           },
+	{ "ignore",             required_argument,      0, OPTION_IGNORE         },
 	{ 0,                    0,                      0, 0                     }
 };
 
@@ -282,6 +303,7 @@ static void usage(const char *prg)
 	std::cout << "  --help, -h              Print this help message" << std::endl;
 	std::cout << "  --path-map, -p <file>   File containing the path-map data" << std::endl;
 	std::cout << "  --repo, -r <path>       Path to git repository" << std::endl;
+	std::cout << "  --ignore, -i <user>     Email address to ignore (if possible)" << std::endl;
 }
 
 static bool parse_options(int argc, char **argv)
@@ -291,7 +313,7 @@ static bool parse_options(int argc, char **argv)
 	while (true) {
 		int opt_idx;
 
-		c = getopt_long(argc, argv, "hp:r:", options, &opt_idx);
+		c = getopt_long(argc, argv, "hp:r:i:", options, &opt_idx);
 		if (c == -1)
 			break;
 
@@ -308,6 +330,10 @@ static bool parse_options(int argc, char **argv)
 		case OPTION_REPO:
 		case 'r':
 			repo_path = optarg;
+			break;
+		case OPTION_IGNORE:
+		case 'i':
+			ignore_params.emplace_back(optarg);
 			break;
 		default:
 			usage(argv[0]);
@@ -345,6 +371,9 @@ int main(int argc, char **argv)
 			// param is not a revision, treat as path
 			paths.emplace(p);
 	}
+
+	for (auto &i : ignore_params)
+		ignore[i] = true;
 
 	match_paths();
 
