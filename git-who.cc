@@ -197,13 +197,12 @@ static bool get_paths_from_revision(git_repository *repo, std::string rev)
 
 	if (parents == 0) {
 		// Ignore root-commits
-	} else if (parents == 1) {
-		// Normal commit, we care
-		ret = get_paths_from_commit(commit, 0);
-		if (!ret)
-			goto out_commit_free;
 	} else {
-		// Also ignore merge commits
+		for (unsigned int i = 0; i < parents; ++i) {
+			ret = get_paths_from_commit(commit, i);
+			if (ret)
+				goto out_commit_free;
+		}
 	}
 
 	ret = true;
