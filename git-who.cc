@@ -11,8 +11,12 @@
  */
 
 #include <iostream>
+#include <fstream>
 #include <string>
+#include <vector>
+#include <map>
 
+#include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <git2.h>
@@ -20,6 +24,42 @@
 std::string path_map_file;
 std::string revision;
 std::string file;
+
+struct person {
+	std::string name;
+	int count;
+
+	bool operator<(const struct person &p) const
+	{
+		return count < p.count;
+	}
+};
+
+struct people {
+	std::vector<struct person> persons;
+
+	void add_one(const struct person &p)
+	{
+		for (auto &i : persons) {
+			if (p.name == i.name) {
+				i.count += p.count;
+				return;
+			}
+		}
+
+		persons.push_back(p);
+	}
+
+	struct people &operator+(const struct people &p)
+	{
+		for (auto &i : p.persons)
+			add_one(i);
+
+		return *this;
+	}
+};
+
+std::map<std::string, struct people> path_map;
 
 enum {
 	OPTION_HELP,
@@ -81,6 +121,62 @@ static bool parse_options(int argc, char **argv)
 	return true;
 }
 
+static int load_path_map(void)
+{
+	std::ifstream file;
+	std::string line;
+
+	file.open(path_map_file.c_str());
+	if (!file.is_open()) {
+		std::cerr << "Can't open path-map file: " << path_map_file << std::endl;
+		return 1;
+	}
+
+	while (getline(file, line)) {
+		struct people people;
+
+		auto pos = line.find_first_of(";");
+		if (pos == std::string::npos)
+			continue;
+
+		auto path = line.substr(0, pos);
+		line = line.substr(pos + 1);
+
+		while (line.length() > 0) {
+			std::string token;
+
+			pos = line.find_first_of(";");
+			if (pos != std::string::npos) {
+				token = line.substr(0, pos);
+				line = line.substr(pos + 1);
+			} else {
+				token = line;
+				line = "";
+			}
+
+			pos = token.find_first_of(":");
+			if (pos == std::string::npos)
+				continue;
+
+			auto name  = token.substr(0, pos);
+			auto count = token.substr(pos + 1);
+
+			struct person p;
+
+			p.name = name;
+			p.count = atoi(count.c_str());
+
+			people.add_one(p);
+		}
+
+		path_map[path] = people;
+	}
+
+	file.close();
+
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	git_repository *repo = NULL;
@@ -88,6 +184,10 @@ int main(int argc, char **argv)
 
 	ret = 1;
 	if (!parse_options(argc, argv))
+		goto out;
+
+	ret = load_path_map();
+	if (ret)
 		goto out;
 
 	git_libgit2_init();
