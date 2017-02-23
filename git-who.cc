@@ -10,6 +10,7 @@
  * Author: Joerg Roedel <jroedel@suse.de>
  */
 
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -178,6 +179,34 @@ static int load_path_map(void)
 	return 0;
 }
 
+static void match_paths(void)
+{
+	struct people results;
+
+	for (auto path : paths) {
+		auto pos = path_map.find(path);
+
+		while (path != "" && pos == path_map.end()) {
+			auto slash = path.find_last_of("/");
+			if (slash == std::string::npos)
+				path = "";
+			else
+				path = path.substr(0, slash);
+			pos = path_map.find(path);
+		}
+
+		if (pos == path_map.end())
+			continue;
+
+		results = results + path_map[path];
+	}
+
+	std::sort(results.persons.rbegin(), results.persons.rend());
+
+	for (auto &p : results.persons)
+		std::cout << p.name << " (" << p.count << ")" << std::endl;
+}
+
 int main(int argc, char **argv)
 {
 	git_repository *repo = NULL;
@@ -196,6 +225,8 @@ int main(int argc, char **argv)
 	error = git_repository_open(&repo, ".");
 	if (error < 0)
 		goto error;
+
+	match_paths();
 
 	git_repository_free(repo);
 
