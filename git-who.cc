@@ -121,6 +121,48 @@ static int load_path_map(void)
 
 	return 0;
 }
+
+static std::string trim(const std::string &line)
+{
+	static const char *spaces = " \n\t\r";
+	size_t pos1, pos2;
+
+	pos1 = line.find_first_not_of(spaces);
+	pos2 = line.find_last_not_of(spaces);
+
+	if (pos1 == std::string::npos)
+		return std::string("");
+
+	return line.substr(pos1, pos2-pos1+1);
+}
+
+static bool ignore_from_file(std::string filename)
+{
+	std::ifstream file;
+	std::string line;
+
+	file.open(filename.c_str());
+	if (!file.is_open())
+		return false;
+
+	while (getline(file, line)) {
+		line = trim(line);
+
+		auto pos = line.find_first_of("#");
+		if (pos != std::string::npos)
+			line = trim(line.substr(0, pos));
+
+		if (line == "")
+			continue;
+
+		ignore[line] = true;
+	}
+
+	file.close();
+
+	return true;
+}
+
 static int diff_file_cb(const git_diff_delta *delta, float progess, void *data)
 {
 	paths.emplace(delta->new_file.path);
@@ -300,10 +342,12 @@ static void usage(const char *prg)
 {
 	std::cout << "Usage " << prg << " [OPTIONS] [REVISION/PATH ...]" << std::endl;
 	std::cout << "Options" << std::endl;
-	std::cout << "  --help, -h              Print this help message" << std::endl;
-	std::cout << "  --path-map, -p <file>   File containing the path-map data" << std::endl;
-	std::cout << "  --repo, -r <path>       Path to git repository" << std::endl;
-	std::cout << "  --ignore, -i <user>     Email address to ignore (if possible)" << std::endl;
+	std::cout << "  --help, -h                Print this help message" << std::endl;
+	std::cout << "  --path-map, -p <file>     File containing the path-map data" << std::endl;
+	std::cout << "  --repo, -r <path>         Path to git repository" << std::endl;
+	std::cout << "  --ignore, -i <user/file>  Email address to ignore (if possible)" << std::endl;
+	std::cout << "                            If the parameter is a file, the email addresses" << std::endl;
+	std::cout << "                            are read from there" << std::endl;
 }
 
 static bool parse_options(int argc, char **argv)
@@ -372,8 +416,10 @@ int main(int argc, char **argv)
 			paths.emplace(p);
 	}
 
-	for (auto &i : ignore_params)
-		ignore[i] = true;
+	for (auto &i : ignore_params) {
+		if (!ignore_from_file(i))
+			ignore[i] = true;
+	}
 
 	match_paths();
 
