@@ -24,6 +24,7 @@
 #include <git2.h>
 
 std::string path_map_file;
+std::string db;
 
 struct person {
 	std::string name;
@@ -328,6 +329,7 @@ enum {
 	OPTION_PATH_MAP,
 	OPTION_REPO,
 	OPTION_IGNORE,
+	OPTION_DB,
 };
 
 static struct option options[] = {
@@ -335,6 +337,7 @@ static struct option options[] = {
 	{ "path-map",           required_argument,      0, OPTION_PATH_MAP       },
 	{ "repo",               required_argument,      0, OPTION_REPO           },
 	{ "ignore",             required_argument,      0, OPTION_IGNORE         },
+	{ "database",		required_argument,	0, OPTION_DB		 },
 	{ 0,                    0,                      0, 0                     }
 };
 
@@ -348,6 +351,8 @@ static void usage(const char *prg)
 	std::cout << "  --ignore, -i <user/file>  Email address to ignore (if possible)" << std::endl;
 	std::cout << "                            If the parameter is a file, the email addresses" << std::endl;
 	std::cout << "                            are read from there" << std::endl;
+	std::cout << "  --database, -d <name>     Select database (set fixes.<name>.pathmap and " << std::endl;
+	std::cout << "                            fixes.<name>.ignore)" << std::endl;
 }
 
 static bool parse_options(int argc, char **argv)
@@ -357,7 +362,7 @@ static bool parse_options(int argc, char **argv)
 	while (true) {
 		int opt_idx;
 
-		c = getopt_long(argc, argv, "hp:r:i:", options, &opt_idx);
+		c = getopt_long(argc, argv, "hp:r:i:d:", options, &opt_idx);
 		if (c == -1)
 			break;
 
@@ -379,6 +384,10 @@ static bool parse_options(int argc, char **argv)
 		case 'i':
 			ignore_params.emplace_back(optarg);
 			break;
+		case OPTION_DB:
+		case 'd':
+			db = optarg;
+			break;
 		default:
 			usage(argv[0]);
 			return false;
@@ -391,6 +400,66 @@ static bool parse_options(int argc, char **argv)
 	return true;
 }
 
+static std::string config_get_string_nofail(git_config *cfg, const char *name)
+{
+#if LIBGIT2_VER_MINOR > 22
+	git_config_entry *entry;
+#else
+	const git_config_entry *entry;
+#endif
+	std::string ret;
+
+	if (git_config_get_entry(&entry, cfg, name))
+		return ret;
+
+	ret = entry->value;
+
+#if LIBGIT2_VER_MINOR > 22
+	git_config_entry_free(entry);
+#endif
+
+	return ret;
+}
+
+static std::string config_get_path_nofail(git_config *cfg, const char *name)
+{
+        std::string path;
+
+        path = config_get_string_nofail(cfg, name);
+        auto len  = path.length();
+
+        if (!len || path[0] != '~')
+                return path;
+
+        if (len > 1 && path[1] != '/')
+                return path;
+
+        return std::string(getenv("HOME")) + path.substr(1);
+}
+
+void load_git_config(git_repository *repo)
+{
+	git_config *repo_cfg;
+	std::string key, val;
+	int error;
+
+	error = git_repository_config(&repo_cfg, repo);
+	if (error)
+		return;
+
+	key = "fixes." + db + ".pathmap";
+	val = config_get_path_nofail(repo_cfg, key.c_str());
+	if (path_map_file == "" && val != "")
+		path_map_file = val;
+
+	key = "fixes." + db + ".ignore";
+	val = config_get_path_nofail(repo_cfg, key.c_str());
+	if (val != "")
+		ignore_params.emplace_back(val);
+
+	git_config_free(repo_cfg);
+}
+
 int main(int argc, char **argv)
 {
 	git_repository *repo = NULL;
@@ -400,15 +469,18 @@ int main(int argc, char **argv)
 	if (!parse_options(argc, argv))
 		goto out;
 
-	ret = load_path_map();
-	if (ret)
-		goto out;
-
 	git_libgit2_init();
 
 	error = git_repository_open(&repo, repo_path.c_str());
 	if (error < 0)
 		goto error;
+
+	if (db != "")
+		load_git_config(repo);
+
+	ret = load_path_map();
+	if (ret)
+		goto out_repo;
 
 	for (auto &p : params) {
 		if (!get_paths_from_revision(repo, p))
@@ -423,9 +495,12 @@ int main(int argc, char **argv)
 
 	match_paths();
 
-	git_repository_free(repo);
 
 	ret = 0;
+
+out_repo:
+	git_repository_free(repo);
+
 out:
 	git_libgit2_shutdown();
 
