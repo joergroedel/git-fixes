@@ -176,6 +176,15 @@ out:
 	return ret;
 }
 
+static int treewalk_cb(const char *root, const git_tree_entry *e, void *d)
+{
+	std::string path = root;
+
+	paths.emplace(path + git_tree_entry_name(e));
+
+	return 0;
+}
+
 static bool get_paths_from_revision(git_repository *repo, std::string rev)
 {
 	unsigned int parents;
@@ -196,7 +205,16 @@ static bool get_paths_from_revision(git_repository *repo, std::string rev)
 	parents = git_commit_parentcount(commit);
 
 	if (parents == 0) {
-		// Ignore root-commits
+		git_tree *tree;
+
+		error = git_commit_tree(&tree, commit);
+		if (error)
+			goto out_commit_free;
+
+		error = git_tree_walk(tree, GIT_TREEWALK_PRE, treewalk_cb, NULL);
+		git_tree_free(tree);
+		if (error)
+			goto out_commit_free;
 	} else {
 		for (unsigned int i = 0; i < parents; ++i) {
 			ret = get_paths_from_commit(commit, i);
