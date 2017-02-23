@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -23,7 +24,6 @@
 
 std::string path_map_file;
 std::string revision;
-std::string file;
 
 struct person {
 	std::string name;
@@ -60,6 +60,7 @@ struct people {
 };
 
 std::map<std::string, struct people> path_map;
+std::set<std::string> paths;
 
 enum {
 	OPTION_HELP,
@@ -107,7 +108,7 @@ static bool parse_options(int argc, char **argv)
 			break;
 		case OPTION_FILE:
 		case 'f':
-			file = optarg;
+			paths.emplace(optarg);
 			break;
 		default:
 			usage(argv[0]);
