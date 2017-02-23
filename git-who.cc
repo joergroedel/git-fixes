@@ -62,6 +62,7 @@ struct people {
 std::map<std::string, struct people> path_map;
 std::vector<std::string> params;
 std::set<std::string> paths;
+std::string repo_path = ".";
 
 static int load_path_map(void)
 {
@@ -247,11 +248,13 @@ static void match_paths(void)
 enum {
 	OPTION_HELP,
 	OPTION_PATH_MAP,
+	OPTION_REPO,
 };
 
 static struct option options[] = {
 	{ "help",               no_argument,            0, OPTION_HELP           },
 	{ "path-map",           required_argument,      0, OPTION_PATH_MAP       },
+	{ "repo",               required_argument,      0, OPTION_REPO           },
 	{ 0,                    0,                      0, 0                     }
 };
 
@@ -261,6 +264,7 @@ static void usage(const char *prg)
 	std::cout << "Options" << std::endl;
 	std::cout << "  --help, -h              Print this help message" << std::endl;
 	std::cout << "  --path-map, -p <file>   File containing the path-map data" << std::endl;
+	std::cout << "  --repo, -r <path>       Path to git repository" << std::endl;
 }
 
 static bool parse_options(int argc, char **argv)
@@ -270,7 +274,7 @@ static bool parse_options(int argc, char **argv)
 	while (true) {
 		int opt_idx;
 
-		c = getopt_long(argc, argv, "hp:", options, &opt_idx);
+		c = getopt_long(argc, argv, "hp:r:", options, &opt_idx);
 		if (c == -1)
 			break;
 
@@ -283,6 +287,10 @@ static bool parse_options(int argc, char **argv)
 		case OPTION_PATH_MAP:
 		case 'p':
 			path_map_file = optarg;
+			break;
+		case OPTION_REPO:
+		case 'r':
+			repo_path = optarg;
 			break;
 		default:
 			usage(argv[0]);
@@ -311,7 +319,7 @@ int main(int argc, char **argv)
 
 	git_libgit2_init();
 
-	error = git_repository_open(&repo, ".");
+	error = git_repository_open(&repo, repo_path.c_str());
 	if (error < 0)
 		goto error;
 
