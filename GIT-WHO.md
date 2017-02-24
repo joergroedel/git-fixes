@@ -4,7 +4,7 @@ git-who - Find the Right Person to Backport a Patch
 With the git-who tool you can easily find the downstream maintainers of
 a file or of certain areas of code. I wrote it for the kernel-source.git
 repository used within SUSE to maintain the kernels for the enterprise
-and community distributions. Here is who to make use of it.
+and community distributions. Here is how to make use of it.
 
 The tool works on a path-map file that maps source code paths and files
 to developers. Each developer also has a score for any given entry.
@@ -67,9 +67,9 @@ configuration for git-fixes:
 	linux.git $ git config fixes.sle12sp2.pathmap ~/path/to/path-map
 	linux.git $ git config fixes.sle12sp2.ignore ~/path/to/ignore.list
 
-Now you can use git-who just like this and avoid some typing:
+Now you can save some typing:
 
 	linux.git $ git-who -d sle12sp2 c37a01779b39
 
 Have fun with the tool and report any bugs, wishes and feature requests
-to jroedel@suse.de.
+to jroedel <at> suse.de.
