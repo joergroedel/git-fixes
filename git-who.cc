@@ -279,13 +279,30 @@ out_obj_free:
 	return ret;
 }
 
+static bool is_prefix(std::string prefix, std::string value)
+{
+	auto len1 = prefix.length();
+	auto len2 = value.length();
+
+	if (len1 > len2)
+		return false;
+
+	return (value.substr(0, len1) == prefix);
+}
+
 static void match_paths(void)
 {
+	std::set<std::string> prefix_paths, new_paths;
 	bool do_ignore = false;
 	struct people results;
 
+	// First build a prefix map for unknown paths
 	for (auto path : paths) {
 		auto pos = path_map.find(path);
+
+		// We care only about prefixes for unknown paths
+		if (pos != path_map.end())
+			continue;
 
 		while (path != "" && pos == path_map.end()) {
 			auto slash = path.find_last_of("/");
@@ -296,14 +313,48 @@ static void match_paths(void)
 			pos = path_map.find(path);
 		}
 
-		if (pos == path_map.end())
-			continue;
-
-		results = results + path_map[path];
+		if (path != "" && pos != path_map.end())
+			prefix_paths.insert(path);
 	}
 
+	// Copy the prefixes to new_paths
+	new_paths = prefix_paths;
+
+	// Eliminate paths that have a prefix already stored
+	for (auto path : paths) {
+		bool store = true;
+
+		for (auto prefix : prefix_paths) {
+			if (is_prefix(prefix, path)) {
+				store = false;
+				break;
+			}
+		}
+
+		if (!store)
+			continue;
+
+		auto pos = path_map.find(path);
+		if (pos != path_map.end())
+			new_paths.insert(path);
+	}
+
+	// Do the matching
+	for (auto path : new_paths) {
+		auto pos = path_map.find(path);
+
+		if (pos == path_map.end()) {
+			std::cerr << "BUG: Unknown path in new_path set" << std::endl;
+			continue;
+		}
+
+		results = results + pos->second;
+	}
+
+	// Sort the results
 	std::sort(results.persons.rbegin(), results.persons.rend());
 
+	// Check if there are unignored people in the list
 	for (auto &p : results.persons) {
 		auto pos = ignore.find(p.name);
 
@@ -313,6 +364,7 @@ static void match_paths(void)
 		}
 	}
 
+	// Print results
 	for (auto &p : results.persons) {
 		if (do_ignore) {
 			auto pos = ignore.find(p.name);
@@ -494,7 +546,6 @@ int main(int argc, char **argv)
 	}
 
 	match_paths();
-
 
 	ret = 0;
 
