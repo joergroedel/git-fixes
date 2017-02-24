@@ -269,8 +269,6 @@ static bool match_tree(git_commit *commit, git_diff_options *diffopts)
 
 		git_tree_free(tree);
 		git_pathspec_free(ps);
-	} else if (parents == 1) {
-		ret = match_parent_tree(commit, 0, diffopts) > 0;
 	} else {
 		for (unsigned i = 0; i < parents; ++i) {
 			if (match_parent_tree(commit, i, diffopts) > 0) {
