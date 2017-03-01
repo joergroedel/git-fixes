@@ -1,3 +1,15 @@
+/*
+ * Copyright (c) 2017 SUSE Linux GmbH
+ *
+ * Licensed under the GNU General Public License Version 2
+ * as published by the Free Software Foundation.
+ *
+ * See http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+ * for details.
+ *
+ * Author: Joerg Roedel <jroedel@suse.de>
+ */
+
 #include <algorithm>
 #include <iostream>
 #include <fstream>
