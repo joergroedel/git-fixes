@@ -44,7 +44,7 @@ extern std::set<std::string> paths;
 extern std::map<std::string, bool> ignore;
 
 extern int load_path_map(std::string);
-extern void match_paths(void);
+extern void match_paths(struct people &results);
 extern bool get_paths_from_revision(git_repository*, std::string);
 bool ignore_from_file(std::string);
 

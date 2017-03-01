@@ -237,11 +237,9 @@ static bool is_prefix(std::string prefix, std::string value)
 	return (value.substr(0, len1) == prefix);
 }
 
-void match_paths(void)
+void match_paths(struct people &results)
 {
 	std::set<std::string> prefix_paths, new_paths;
-	bool do_ignore = false;
-	struct people results;
 
 	// First build a prefix map for unknown paths
 	for (auto path : paths) {
@@ -300,25 +298,4 @@ void match_paths(void)
 
 	// Sort the results
 	std::sort(results.persons.rbegin(), results.persons.rend());
-
-	// Check if there are unignored people in the list
-	for (auto &p : results.persons) {
-		auto pos = ignore.find(p.name);
-
-		if (pos == ignore.end()) {
-			do_ignore = true;
-			break;
-		}
-	}
-
-	// Print results
-	for (auto &p : results.persons) {
-		if (do_ignore) {
-			auto pos = ignore.find(p.name);
-			if (pos != ignore.end())
-				continue;
-		}
-
-		std::cout << p.name << " (" << p.count << ")" << std::endl;
-	}
 }

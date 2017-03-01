@@ -168,9 +168,36 @@ void load_git_config(git_repository *repo)
 	git_config_free(repo_cfg);
 }
 
+static void print_results(struct people &results)
+{
+	bool do_ignore = false;
+
+	// Check if there are unignored people in the list
+	for (auto &p : results.persons) {
+		auto pos = ignore.find(p.name);
+
+		if (pos == ignore.end()) {
+			do_ignore = true;
+			break;
+		}
+	}
+
+	// Print results
+	for (auto &p : results.persons) {
+		if (do_ignore) {
+			auto pos = ignore.find(p.name);
+			if (pos != ignore.end())
+				continue;
+		}
+
+		std::cout << p.name << " (" << p.count << ")" << std::endl;
+	}
+}
+
 int main(int argc, char **argv)
 {
 	git_repository *repo = NULL;
+	struct people results;
 	int ret, error;
 
 	ret = 1;
@@ -201,7 +228,9 @@ int main(int argc, char **argv)
 			ignore[i] = true;
 	}
 
-	match_paths();
+	match_paths(results);
+
+	print_results(results);
 
 	ret = 0;
 
