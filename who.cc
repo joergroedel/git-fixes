@@ -11,7 +11,6 @@
 
 static std::map<std::string, struct people> path_map;
 
-std::map<std::string, bool> ignore;
 std::set<std::string> paths;
 
 int load_path_map(std::string filename)
@@ -68,47 +67,6 @@ int load_path_map(std::string filename)
 	file.close();
 
 	return 0;
-}
-
-static std::string trim(const std::string &line)
-{
-	static const char *spaces = " \n\t\r";
-	size_t pos1, pos2;
-
-	pos1 = line.find_first_not_of(spaces);
-	pos2 = line.find_last_not_of(spaces);
-
-	if (pos1 == std::string::npos)
-		return std::string("");
-
-	return line.substr(pos1, pos2-pos1+1);
-}
-
-bool ignore_from_file(std::string filename)
-{
-	std::ifstream file;
-	std::string line;
-
-	file.open(filename.c_str());
-	if (!file.is_open())
-		return false;
-
-	while (getline(file, line)) {
-		line = trim(line);
-
-		auto pos = line.find_first_of("#");
-		if (pos != std::string::npos)
-			line = trim(line.substr(0, pos));
-
-		if (line == "")
-			continue;
-
-		ignore[line] = true;
-	}
-
-	file.close();
-
-	return true;
 }
 
 static int diff_file_cb(const git_diff_delta *delta, float progess, void *data)

@@ -29,8 +29,50 @@ static std::string path_map_file;
 static std::string db;
 static std::vector<std::string> ignore_params;
 static std::vector<std::string> params;
+static std::map<std::string, bool> ignore;
 
 std::string repo_path = ".";
+
+static std::string trim(const std::string &line)
+{
+	static const char *spaces = " \n\t\r";
+	size_t pos1, pos2;
+
+	pos1 = line.find_first_not_of(spaces);
+	pos2 = line.find_last_not_of(spaces);
+
+	if (pos1 == std::string::npos)
+		return std::string("");
+
+	return line.substr(pos1, pos2-pos1+1);
+}
+
+static bool ignore_from_file(std::string filename)
+{
+	std::ifstream file;
+	std::string line;
+
+	file.open(filename.c_str());
+	if (!file.is_open())
+		return false;
+
+	while (getline(file, line)) {
+		line = trim(line);
+
+		auto pos = line.find_first_of("#");
+		if (pos != std::string::npos)
+			line = trim(line.substr(0, pos));
+
+		if (line == "")
+			continue;
+
+		ignore[line] = true;
+	}
+
+	file.close();
+
+	return true;
+}
 
 enum {
 	OPTION_HELP,
