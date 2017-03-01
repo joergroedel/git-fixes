@@ -9,11 +9,7 @@
 
 #include "who.h"
 
-static std::map<std::string, struct people> path_map;
-
-std::set<std::string> paths;
-
-int load_path_map(std::string filename)
+int git_who::load_path_map(std::string filename)
 {
 	std::ifstream file;
 	std::string line;
@@ -71,12 +67,19 @@ int load_path_map(std::string filename)
 
 static int diff_file_cb(const git_diff_delta *delta, float progess, void *data)
 {
-	paths.emplace(delta->new_file.path);
+	git_who *w = static_cast<git_who *>(data);
+
+	w->add_path(delta->new_file.path);
 
 	return 0;
 }
 
-static bool get_paths_from_commit(git_commit *commit, size_t idx)
+void git_who::add_path(std::string path)
+{
+	paths.emplace(std::move(path));
+}
+
+bool git_who::get_paths_from_commit(git_commit *commit, size_t idx)
 {
 	git_commit *parent;
 	git_tree *a, *b;
@@ -102,9 +105,9 @@ static bool get_paths_from_commit(git_commit *commit, size_t idx)
 		goto out_tree_b;
 
 #if LIBGIT2_VER_MAJOR == 0 && LIBGIT2_VER_MINOR < 23
-	error = git_diff_foreach(diff, diff_file_cb, NULL, NULL, NULL);
+	error = git_diff_foreach(diff, diff_file_cb, NULL, NULL, this);
 #else
-	error = git_diff_foreach(diff, diff_file_cb, NULL, NULL, NULL, NULL);
+	error = git_diff_foreach(diff, diff_file_cb, NULL, NULL, NULL, this);
 #endif
 	if (error)
 		goto out_diff;
@@ -126,16 +129,18 @@ out:
 	return ret;
 }
 
-static int treewalk_cb(const char *root, const git_tree_entry *e, void *d)
+static int treewalk_cb(const char *root, const git_tree_entry *e, void *data)
 {
+	git_who *w = static_cast<git_who *>(data);
 	std::string path = root;
 
-	paths.emplace(path + git_tree_entry_name(e));
+	path += git_tree_entry_name(e);
+	w->add_path(std::move(path));
 
 	return 0;
 }
 
-bool get_paths_from_revision(git_repository *repo, std::string rev)
+bool git_who::get_paths_from_revision(git_repository *repo, std::string rev)
 {
 	unsigned int parents;
 	git_commit *commit;
@@ -161,7 +166,7 @@ bool get_paths_from_revision(git_repository *repo, std::string rev)
 		if (error)
 			goto out_commit_free;
 
-		error = git_tree_walk(tree, GIT_TREEWALK_PRE, treewalk_cb, NULL);
+		error = git_tree_walk(tree, GIT_TREEWALK_PRE, treewalk_cb, this);
 		git_tree_free(tree);
 		if (error)
 			goto out_commit_free;
@@ -195,7 +200,7 @@ static bool is_prefix(std::string prefix, std::string value)
 	return (value.substr(0, len1) == prefix);
 }
 
-void match_paths(struct people &results)
+void git_who::match_paths(struct people &results)
 {
 	std::set<std::string> prefix_paths, new_paths;
 

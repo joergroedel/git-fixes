@@ -241,6 +241,7 @@ int main(int argc, char **argv)
 	git_repository *repo = NULL;
 	struct people results;
 	int ret, error;
+	git_who who;
 
 	ret = 1;
 	if (!parse_options(argc, argv))
@@ -255,14 +256,14 @@ int main(int argc, char **argv)
 	if (db != "")
 		load_git_config(repo);
 
-	ret = load_path_map(path_map_file);
+	ret = who.load_path_map(path_map_file);
 	if (ret)
 		goto out_repo;
 
 	for (auto &p : params) {
-		if (!get_paths_from_revision(repo, p))
+		if (!who.get_paths_from_revision(repo, p))
 			// param is not a revision, treat as path
-			paths.emplace(p);
+			who.add_path(p);
 	}
 
 	for (auto &i : ignore_params) {
@@ -270,7 +271,7 @@ int main(int argc, char **argv)
 			ignore[i] = true;
 	}
 
-	match_paths(results);
+	who.match_paths(results);
 
 	print_results(results);
 

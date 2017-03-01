@@ -6,6 +6,8 @@
 #include <map>
 #include <set>
 
+#include <git2.h>
+
 struct person {
 	std::string name;
 	int count;
@@ -40,10 +42,18 @@ struct people {
 	}
 };
 
-extern std::set<std::string> paths;
+class git_who {
+private:
+	std::map<std::string, struct people> path_map;
+	std::set<std::string> paths;
 
-extern int load_path_map(std::string);
-extern void match_paths(struct people &results);
-extern bool get_paths_from_revision(git_repository*, std::string);
+	bool get_paths_from_commit(git_commit*, size_t);
+
+public:
+	void add_path(std::string);
+	int  load_path_map(std::string);
+	void match_paths(struct people &results);
+	bool get_paths_from_revision(git_repository*, std::string);
+};
 
 #endif /* __WHO_H */
