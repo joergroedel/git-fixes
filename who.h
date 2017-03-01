@@ -2,9 +2,9 @@
 #define __WHO_H
 
 #include <vector>
+#include <string>
 #include <map>
 #include <set>
-#include <string>
 
 struct person {
 	std::string name;
@@ -42,9 +42,8 @@ struct people {
 
 extern std::set<std::string> paths;
 extern std::map<std::string, bool> ignore;
-extern std::string path_map_file;
 
-extern int load_path_map(void);
+extern int load_path_map(std::string);
 extern void match_paths(void);
 extern bool get_paths_from_revision(git_repository*, std::string);
 bool ignore_from_file(std::string);

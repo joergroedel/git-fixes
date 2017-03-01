@@ -25,6 +25,7 @@
 
 #include "who.h"
 
+static std::string path_map_file;
 static std::string db;
 static std::vector<std::string> ignore_params;
 static std::vector<std::string> params;
@@ -185,7 +186,7 @@ int main(int argc, char **argv)
 	if (db != "")
 		load_git_config(repo);
 
-	ret = load_path_map();
+	ret = load_path_map(path_map_file);
 	if (ret)
 		goto out_repo;
 

@@ -11,18 +11,17 @@
 
 static std::map<std::string, struct people> path_map;
 
-std::string path_map_file;
 std::map<std::string, bool> ignore;
 std::set<std::string> paths;
 
-int load_path_map(void)
+int load_path_map(std::string filename)
 {
 	std::ifstream file;
 	std::string line;
 
-	file.open(path_map_file.c_str());
+	file.open(filename.c_str());
 	if (!file.is_open()) {
-		std::cerr << "Can't open path-map file: " << path_map_file << std::endl;
+		std::cerr << "Can't open path-map file: " << filename << std::endl;
 		return 1;
 	}
 
