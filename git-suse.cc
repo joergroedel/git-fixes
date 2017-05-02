@@ -665,10 +665,11 @@ int main(int argc, char **argv)
 		results_type r;
 
 		do_diff(r, base, results);
-		write_results(*os, r);
-	} else {
-		write_results(*os, results);
+
+		results = r;
 	}
+
+	write_results(*os, results);
 
 	if (!std_out)
 		cout << "Wrote " << results.size() << " commits to " << file_name << endl;
