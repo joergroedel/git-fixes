@@ -372,6 +372,8 @@ static int handle_revision(git_repository *repo, const char *revision,
 	string blist;
 	int error;
 
+	blob_id_cache.clear();
+
 	error = git_revparse_single(&obj, repo, revision);
 	if (error < 0)
 		goto out;
