@@ -509,6 +509,30 @@ static void load_commits(istream &in, vector<struct match_info> &commits)
 	sort(commits.begin(), commits.end());
 }
 
+static void load_ignore_file(string filename)
+{
+	vector<struct match_info> commits;
+	ifstream file;
+
+	if (filename == "")
+		return;
+
+	file.open(filename.c_str());
+	if (!file.is_open()) {
+		printf("Can't open ignore-file: %s\n", filename.c_str());
+		return;
+	}
+
+	load_commits(file, commits);
+
+	for (auto &c : commits)
+		blacklist.push_back(c.commit_id);
+
+	sort(blacklist.begin(), blacklist.end());
+
+	return;
+}
+
 static bool load_commit_file(const char *filename, vector<struct match_info> &commits)
 {
 	ifstream file;
@@ -1226,6 +1250,8 @@ int main(int argc, char **argv)
 	error = db_file(filename, repo, &opts);
 	if (error)
 		goto error;
+
+	load_ignore_file(opts.ignore_file);
 
 	bl_file(bl_filename, repo, &opts);
 	load_blacklist_file(bl_filename);
