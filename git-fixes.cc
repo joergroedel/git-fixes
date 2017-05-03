@@ -483,29 +483,11 @@ static void print_results(struct options *opts)
 		printf("Nothing found\n");
 }
 
-static bool load_commit_file(const char *filename, vector<struct match_info> &commits)
+static void load_commits(istream &in, vector<struct match_info> &commits)
 {
-	ifstream file;
-	istream *in;
 	string line;
 
-	if (strcmp(filename, "") == 0) {
-		printf("No file given to load commit-list from.\n");
-		printf("Either use the -f option or set the fixes.file config variable in git.\n");
-		return false;
-	} else if (strcmp(filename, "-") == 0) {
-		in = &cin;
-	} else {
-		file.open(filename);
-		if (!file.is_open()) {
-			printf("Can't open file '%s'\n", filename);
-			return false;
-		}
-
-		in = &file;
-	}
-
-	while (getline(*in, line)) {
+	while (getline(in, line)) {
 		struct match_info info;
 		vector<string> tokens;
 		int num;
@@ -525,6 +507,30 @@ static bool load_commit_file(const char *filename, vector<struct match_info> &co
 	}
 
 	sort(commits.begin(), commits.end());
+}
+
+static bool load_commit_file(const char *filename, vector<struct match_info> &commits)
+{
+	ifstream file;
+	istream *in;
+
+	if (strcmp(filename, "") == 0) {
+		printf("No file given to load commit-list from.\n");
+		printf("Either use the -f option or set the fixes.file config variable in git.\n");
+		return false;
+	} else if (strcmp(filename, "-") == 0) {
+		in = &cin;
+	} else {
+		file.open(filename);
+		if (!file.is_open()) {
+			printf("Can't open file '%s'\n", filename);
+			return false;
+		}
+
+		in = &file;
+	}
+
+	load_commits(*in, commits);
 
 	if (file.is_open())
 		file.close();
