@@ -35,6 +35,7 @@ struct options {
 	string revision;
 	string committer;
 	string fixes_file;
+	string ignore_file;
 	string bl_file;
 	string bl_path_file;
 	string db;
@@ -947,6 +948,7 @@ enum {
 	OPTION_NO_STABLE,
 	OPTION_MATCH_ALL,
 	OPTION_FILE,
+	OPTION_IGNORE_FILE,
 	OPTION_BLACKLIST,
 	OPTION_NO_BLACKLIST,
 	OPTION_ADD_BL,
@@ -971,6 +973,7 @@ static struct option options[] = {
 	{ "match-all",		no_argument,		0, OPTION_MATCH_ALL      },
 	{ "data-base",		required_argument,	0, OPTION_DATA_BASE      },
 	{ "file",		required_argument,	0, OPTION_FILE           },
+	{ "ignore-file",	required_argument,	0, OPTION_IGNORE_FILE    },
 	{ "blacklist",		required_argument,	0, OPTION_BLACKLIST      },
 	{ "no-blacklist",	no_argument,		0, OPTION_NO_BLACKLIST   },
 	{ "Blacklist",		required_argument,	0, OPTION_ADD_BL         },
@@ -998,6 +1001,9 @@ static void usage(const char *prg)
 	printf("  --match-all, -m  Match against everything that looks like a git commit-id\n");
 	printf("  --data-base, -d  Select specific data-base (set file with fixes.<db>.file)\n");
 	printf("  --file, -f       Read commit-list from file\n");
+	printf("  --ignore-file    Specify a file with commits to be added to the\n");
+	printf("                   commit-list, but not checked for pending fixes\n");
+	printf("                   Use this to ignore fixes already in the tree\n");
 	printf("  --blacklist, -b  Read blacklist from file\n");
 	printf("  --no-blacklist,  Also show blacklisted commits\n");
 	printf("  --Blacklist, -B  Add commit to blacklist\n");
@@ -1068,6 +1074,8 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 		case 'f':
 			opts->fixes_file = optarg;
 			break;
+		case OPTION_IGNORE_FILE:
+			opts->ignore_file = optarg;
 		case OPTION_BLACKLIST:
 		case 'b':
 			opts->bl_file = optarg;
