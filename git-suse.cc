@@ -35,6 +35,7 @@ bool std_out = false;
 bool append = false;
 string file_name;
 string base_rev;
+string base_file;
 
 map<string, bool> blob_id_cache;
 map<string, map<string, int> > path_map;
@@ -429,6 +430,7 @@ enum {
 	OPTION_BLACKLIST,
 	OPTION_PATH_BLACKLIST,
 	OPTION_PATH_MAP,
+	OPTION_BASE_FILE,
 };
 
 static struct option options[] = {
@@ -441,6 +443,7 @@ static struct option options[] = {
 	{ "blacklist",		required_argument,	0, OPTION_BLACKLIST      },
 	{ "path-blacklist",	required_argument,	0, OPTION_PATH_BLACKLIST },
 	{ "path-map",		required_argument,	0, OPTION_PATH_MAP       },
+	{ "base-file",		required_argument,	0, OPTION_BASE_FILE      },
 	{ 0,			0,			0, 0                     }
 };
 
@@ -455,6 +458,8 @@ static void usage(const char *prg)
 	printf("  --path-blacklist Write path-blacklist to specified file\n");
 	printf("  --path-map       Write path-map to specified file\n");
 	printf("  --base, -b       Show only commits not in given base version\n");
+	printf("  --base-file      File to store commit-list from the base-kernel\n");
+	printf("                   (Only used when --base is specified)\n");
 	printf("  --append         Open output file in append mode\n");
 	printf("  --stdout, -c     Write output to stdout\n");
 }
@@ -493,6 +498,9 @@ static void parse_options(int argc, char **argv)
 		case 'b':
 			base_rev = optarg;
 			diff_mode = true;
+			break;
+		case OPTION_BASE_FILE:
+			base_file = optarg;
 			break;
 		case OPTION_APPEND:
 			append = true;
@@ -669,6 +677,17 @@ int main(int argc, char **argv)
 		do_diff(r, base, results);
 
 		results = r;
+
+		if (base_file != "") {
+			ofstream bof(base_file);
+
+			if (bof.is_open()) {
+				write_results(bof, base);
+				cout << "Wrote " << base.size() << " commits to " << base_file << endl;
+			} else {
+				cerr << "Can't open " << base_file << " for writing" << endl;
+			}
+		}
 	}
 
 	write_results(*os, results);
