@@ -66,6 +66,7 @@ public:
 	int  load_path_map(std::string);
 	void match_paths(struct people &results);
 	bool get_paths_from_revision(git_repository*, std::string);
+	void reset(void);
 };
 
 #endif /* __WHO_H */

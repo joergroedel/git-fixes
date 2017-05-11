@@ -274,3 +274,8 @@ void git_who::match_paths(struct people &results)
 	// Sort the results
 	std::sort(results.persons.rbegin(), results.persons.rend());
 }
+
+void git_who::reset(void)
+{
+	paths.clear();
+}
