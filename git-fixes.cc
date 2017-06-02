@@ -950,7 +950,7 @@ static int load_defaults_from_git(git_repository *repo, struct options *opts)
 		opts->fixes_file = config_get_path_nofail(repo_cfg, "fixes.file");
 
 	if (opts->bl_path_file == "")
-		opts->bl_path_file = config_get_path_nofail(repo_cfg, "path-blacklist");
+		opts->bl_path_file = config_get_path_nofail(repo_cfg, "fixes.path-blacklist");
 
 	if (!opts->all_cmdline) {
 		error = git_config_get_bool(&val, repo_cfg, "fixes.all");
@@ -1219,7 +1219,7 @@ static void bl_path_file(string &filename, git_repository *repo, struct options 
 
 		git_config_free(repo_cfg);
 	} else {
-		filename = opts->bl_file;
+		filename = opts->bl_path_file;
 	}
 }
 
