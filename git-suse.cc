@@ -296,6 +296,17 @@ static void parse_patch(const string &path,
 		}
 	}
 
+	auto pos = path.find_first_of("/");
+	if (pos != std::string::npos) {
+		auto directory = path.substr(0, pos);
+
+		// Count patches in "patches.kernel.org" directory
+		// as Base fixes
+		if (directory == "patches.kernel.org")
+			committer = "Base";
+
+	}
+
 	for (auto &it : commit_ids) {
 		results[it].context = committer;
 		results[it].path = path;
