@@ -121,4 +121,19 @@ You can also redirect the output of git-suse (when called with -c and without
 More Options
 ============
 
-TBD.
+There is a blacklist mechanism that allows to ignore certain commits so that
+they are not considered as potential fixes. The commits to ignore are
+specified in two ways: by path or by commit id. These specifications must be
+listed in a file named "blacklist.conf" at the base of the relevant branch in
+kernel-source.git. Please see an instance of such file in the SLE12-SP3 branch
+for more information about its format.
+
+blacklist.conf has to be processed by git-suse so that it can be passed as
+input to git-fixes:
+
+	kernel-source$ git suse -f /tmp/commit-list --blacklist /tmp/blacklist --path-blacklist /tmp/path-blacklist
+	Wrote 19095 commits to /tmp/commit-list
+	Wrote 148 blacklisted commits to /tmp/blacklist
+	Wrote 32 blacklisted paths to /tmp/path-blacklist
+
+	linux$ git fixes -f /tmp/commit-list -b /tmp/blacklist --path-blacklist /tmp/path-blacklist
