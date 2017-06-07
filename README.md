@@ -100,7 +100,7 @@ disk. A simple usage could look like this:
 This extracts the commits and writes them to /tmp/SLE12-SP1.list. The file can
 then be used as input for git-fixes:
 
-	$ git fixes -d /tmp/SLE12-SP1.list v3.12..linus/master
+	$ git fixes -f /tmp/SLE12-SP1.list v3.12..linus/master
 
 The git-suse tool can also be used to only extract newly backported commits.
 When you backported a couple of upstream commits to SLE12-SP1 and want to
