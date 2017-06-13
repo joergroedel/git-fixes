@@ -102,6 +102,7 @@ then be used as input for git-fixes:
 
 	$ git fixes -f /tmp/SLE12-SP1.list v3.12..linus/master
 
+
 The git-suse tool can also be used to only extract newly backported commits.
 When you backported a couple of upstream commits to SLE12-SP1 and want to
 create a list of these patches, you can do:
@@ -118,8 +119,21 @@ are upstream fixes for the stuff you just backported:
 You can also redirect the output of git-suse (when called with -c and without
 -f) to git-fixes (use -f - there).
 
-More Options
-============
+
+git-fixes can also show commits which fix commits in the base kernel used for
+a service pack. For example, the SLE12-SP3 branch is based on linux 4.4;
+git-fixes can show a commit from v4.8 which has a "Fixes:" tag referring to a
+commit from v4.2 and which was not backported in the stable kernel tree. To
+show those commits, commits from the base kernel must be included in the
+commit list:
+
+	linux$ git log v4.4 --pretty=%H,Base > /tmp/commit-list.base
+	linux$ cp /tmp/commit-list.base /tmp/commit-list
+	kernel-source$ git suse -f /tmp/commit-list --append --blacklist /tmp/blacklist --path-blacklist /tmp/path-blacklist
+	linux$ git fixes -f /tmp/commit-list -b /tmp/blacklist --path-blacklist /tmp/path-blacklist v4.4..
+
+Blacklisting Commits
+====================
 
 There is a blacklist mechanism that allows to ignore certain commits so that
 they are not considered as potential fixes. The commits to ignore are
