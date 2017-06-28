@@ -783,6 +783,28 @@ out_free:
 	return ret;
 }
 
+static void remove_reverts(std::map<std::string, std::string> &reverts)
+{
+	std::map<std::string, bool> r1, r2;
+
+	for (auto &r : reverts) {
+		r1[r.first]  = true;
+		r2[r.second] = true;
+	}
+
+	for (auto &entry : results) {
+		auto &commits = entry.second;
+
+		for (auto pos = commits.begin(); pos != commits.end(); ++pos) {
+			auto p1 = r1.find(pos->id);
+			auto p2 = r2.find(pos->id);
+
+			if (p1 != r1.end() || p2 != r2.end())
+				commits.erase(pos);
+		}
+	}
+}
+
 static int fixes(git_repository *repo, struct options *opts)
 {
 	git_diff_options diffopts = GIT_DIFF_OPTIONS_INIT;
@@ -835,21 +857,7 @@ static int fixes(git_repository *repo, struct options *opts)
 	}
 
 	// Remove reverted commits from the fixes list
-	for (auto &r : reverts) {
-		auto pos = results.find(r.second);
-
-		if (pos == results.end())
-			// The reverted commit is not in the list of fixes
-			continue;
-
-		// Remove the commit from the list
-		results.erase(pos);
-
-		// Now check if the revert itself is in the fixes-list
-		pos = results.find(r.first);
-		if (pos != results.end())
-			results.erase(pos);
-	}
+	remove_reverts(reverts);
 
 	destroy_diffopts(&diffopts);
 	if (bl_pathspec)
