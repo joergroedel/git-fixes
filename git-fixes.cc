@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 SUSE Linux GmbH
+ * Copyright (c) 2016-2018 SUSE Linux GmbH
  *
  * Licensed under the GNU General Public License Version 2
  * as published by the Free Software Foundation.
@@ -53,6 +53,7 @@ struct options {
 	bool patch;
 	vector<string> path;
 	vector<string> bl_path;
+	vector<string> domains;
 };
 
 struct commit {
@@ -282,11 +283,30 @@ static bool match_tree(git_commit *commit, git_diff_options *diffopts)
 	return ret;
 }
 
+static bool match_domain(const vector<string> &domains, const string &email)
+{
+	auto pos = email.find_first_of("@");
+
+	if (pos == string::npos)
+		return false;
+
+	string domain = to_lower(trim(email.substr(pos + 1)));
+
+	for (auto &d : domains) {
+		if (d == domain)
+			return true;
+	}
+
+	return false;
+}
+
 static bool match_commit(const struct commit &c, const string &id,
 			 git_commit *commit, git_diff_options *diffopts,
 			 struct options *opts)
 {
 	vector<struct match_info>::const_iterator it;
+	string author, committer, context;
+	const git_signature *sig;
 	struct match_info info;
 	bool ret;
 
@@ -307,8 +327,24 @@ static bool match_commit(const struct commit &c, const string &id,
 	if (it == match_list.end())
 		return false;
 
+	context = it->committer;
+
+	// Load author and committer of potential fix
+	sig = git_commit_author(commit);
+	if (sig)
+		author = to_lower(sig->email);
+
+	sig = git_commit_committer(commit);
+	if (sig)
+		committer = to_lower(sig->email);
+
+	if (match_domain(opts->domains, author))
+		context = author;
+	else if (match_domain(opts->domains, committer))
+		context = committer;
+
 	if (!opts->all && opts->committer.length() > 0) {
-	    if (it->committer.find(opts->committer) == string::npos)
+	    if (context.find(opts->committer) == string::npos)
 		return false;
 	}
 
@@ -317,9 +353,9 @@ static bool match_commit(const struct commit &c, const string &id,
 
 	if (ret) {
 		struct commit __commit = c;
-		string key = opts->no_group ? "default" : it->committer;
+		string key = opts->no_group ? "default" : context;
 
-		__commit.context = it->committer;
+		__commit.context = context;
 		__commit.path    = it->path;
 		results[key].emplace_back(__commit);
 	}
@@ -995,6 +1031,7 @@ enum {
 	OPTION_PARSABLE,
 	OPTION_PATH_BLACKLIST,
 	OPTION_PATCH,
+	OPTION_DOMAINS,
 };
 
 static struct option options[] = {
@@ -1019,6 +1056,7 @@ static struct option options[] = {
 	{ "parsable",		no_argument,		0, OPTION_PARSABLE       },
 	{ "path-blacklist",	required_argument,	0, OPTION_PATH_BLACKLIST },
 	{ "patch",		no_argument,		0, OPTION_PATCH          },
+	{ "domains",		required_argument,	0, OPTION_DOMAINS        },
 	{ 0,			0,			0, 0                     }
 };
 
@@ -1049,6 +1087,9 @@ static void usage(const char *prg)
 	printf("  --parsable, -p   Print machine readable output\n");
 	printf("  --path-blacklist Filename containing the path-blacklist\n");
 	printf("  --patch          Print patch-filename the fix is for (if available)\n");
+	printf("  --domains        Comma-separated list of own domains. If the author\n");
+	printf("                   of the fix has an email address with one of the domains\n");
+	printf("                   specified here, it gets the fix assigned directly.\n");
 }
 
 static bool parse_options(struct options *opts, int argc, char **argv)
@@ -1150,6 +1191,9 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 			break;
 		case OPTION_PATCH:
 			opts->patch = true;
+			break;
+		case OPTION_DOMAINS:
+			split_trim(opts->domains, ",", string(optarg), 0);
 			break;
 		default:
 			usage(argv[0]);
