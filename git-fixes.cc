@@ -1155,6 +1155,7 @@ static bool parse_options(struct options *opts, int argc, char **argv)
 			break;
 		case OPTION_IGNORE_FILE:
 			opts->ignore_file = optarg;
+			break;
 		case OPTION_BLACKLIST:
 		case 'b':
 			opts->bl_file = optarg;
