@@ -830,13 +830,16 @@ static void remove_reverts(std::map<std::string, std::string> &reverts)
 
 	for (auto &entry : results) {
 		auto &commits = entry.second;
+		auto pos = commits.begin();
 
-		for (auto pos = commits.begin(); pos != commits.end(); ++pos) {
+		while (pos != commits.end()) {
 			auto p1 = r1.find(pos->id);
 			auto p2 = r2.find(pos->id);
 
 			if (p1 != r1.end() || p2 != r2.end())
-				commits.erase(pos);
+				pos = commits.erase(pos);
+			else
+				pos += 1;
 		}
 	}
 }
