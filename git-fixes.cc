@@ -821,22 +821,19 @@ out_free:
 
 static void remove_reverts(std::map<std::string, std::string> &reverts)
 {
-	std::map<std::string, bool> r1, r2;
+	std::map<std::string, bool> r;
 
-	for (auto &r : reverts) {
-		r1[r.first]  = true;
-		r2[r.second] = true;
-	}
+	for (auto &_r : reverts)
+		r[_r.second]  = true;
 
 	for (auto &entry : results) {
 		auto &commits = entry.second;
 		auto pos = commits.begin();
 
 		while (pos != commits.end()) {
-			auto p1 = r1.find(pos->id);
-			auto p2 = r2.find(pos->id);
+			auto p = r.find(pos->id);
 
-			if (p1 != r1.end() || p2 != r2.end())
+			if (p != r.end())
 				pos = commits.erase(pos);
 			else
 				pos += 1;
