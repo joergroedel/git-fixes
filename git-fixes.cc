@@ -344,8 +344,8 @@ static bool match_commit(const struct commit &c, const string &id,
 		context = committer;
 
 	if (!opts->all && opts->committer.length() > 0) {
-	    if (context.find(opts->committer) == string::npos)
-		return false;
+		if (context.find(opts->committer) == string::npos)
+			return false;
 	}
 
 	ret = (it->commit_id == info.commit_id) &&
