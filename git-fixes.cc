@@ -324,7 +324,7 @@ static bool match_commit(const struct commit &c, const string &id,
 
 	it = lower_bound(match_list.begin(), match_list.end(), info);
 
-	if (it == match_list.end())
+	if (it == match_list.end() || it->commit_id != info.commit_id)
 		return false;
 
 	context = it->committer;
