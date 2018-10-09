@@ -382,8 +382,13 @@ static void parse_line(const string &line, struct commit &cm)
 	    line.substr(0,19) == "This reverts commit") {
 		string id = line.substr(20, 40);
 
-		if (is_hex(id))
+		if (is_hex(id)) {
 			reverts[cm.id] = id;
+			commit.id = id;
+			commit.fixes = true;
+			cm.refs.push_back(commit);
+			return;
+		}
 	}
 
 	for (c = line.begin(); c != line.end(); last_c = *c, ++c) {
