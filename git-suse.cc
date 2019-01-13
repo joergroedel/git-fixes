@@ -37,7 +37,6 @@ string file_name;
 string base_rev;
 string base_file;
 
-map<string, bool> blob_id_cache;
 map<string, map<string, int> > path_map;
 
 typedef map<string, git_oid> oid_map_t;
@@ -141,7 +140,6 @@ static int blob_content(string& content, const string &path,
 		 git_repository *repo, git_tree *tree)
 {
 	git_blob *blob;
-	string oid;
 	int error;
 
 	content.clear();
@@ -151,12 +149,6 @@ static int blob_content(string& content, const string &path,
 		giterr_set_str(GIT_ENOTFOUND, "Path not found");
 		return GIT_ENOTFOUND;
 	}
-
-	oid = git_oid_tostr_s(&oid_it->second);
-	if (blob_id_cache.find(oid) != blob_id_cache.end())
-		return GIT_OK;
-
-	blob_id_cache[oid] = true;
 
 	error = git_blob_lookup(&blob, repo, &oid_it->second);
 	if (error)
@@ -394,8 +386,6 @@ static int handle_revision(git_repository *repo, const char *revision,
 	string series;
 	string blist;
 	int error;
-
-	blob_id_cache.clear();
 
 	error = git_revparse_single(&obj, repo, revision);
 	if (error < 0)
