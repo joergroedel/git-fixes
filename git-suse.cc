@@ -37,8 +37,10 @@ string file_name;
 string base_rev;
 string base_file;
 
-map<string, bool> blob_id_cache;
 map<string, map<string, int> > path_map;
+
+typedef map<string, git_oid> oid_map_t;
+oid_map_t file_oid_map;
 
 struct patch_info {
 	string context;
@@ -134,41 +136,28 @@ static bool is_suse_email(const string &email)
 	return false;
 }
 
-static int blob_content(string& content, const char *path,
+static int blob_content(string& content, const string &path,
 		 git_repository *repo, git_tree *tree)
 {
-	git_tree_entry *entry;
 	git_blob *blob;
-	string oid;
 	int error;
 
 	content.clear();
 
-	error = git_tree_entry_bypath(&entry, tree, path);
+	auto oid_it = file_oid_map.find(path);
+	if (oid_it == file_oid_map.end()) {
+		giterr_set_str(GIT_ENOTFOUND, "Path not found");
+		return GIT_ENOTFOUND;
+	}
+
+	error = git_blob_lookup(&blob, repo, &oid_it->second);
 	if (error)
-		goto out;
-
-	if (git_tree_entry_type(entry) != GIT_OBJ_BLOB)
-		goto out_free_entry;
-
-	oid = git_oid_tostr_s(git_tree_entry_id(entry));
-	if (blob_id_cache.find(oid) != blob_id_cache.end())
-		goto out_free_entry;
-
-	blob_id_cache[oid] = true;
-
-	error = git_blob_lookup(&blob, repo, git_tree_entry_id(entry));
-	if (error)
-		goto out_free_entry;
+		return error;
 
 	content = (const char *)git_blob_rawcontent(blob);
 
 	git_blob_free(blob);
 
-out_free_entry:
-	git_tree_entry_free(entry);
-
-out:
 	return error;
 }
 
@@ -183,7 +172,7 @@ static void parse_patch(const string &path,
 	string content;
 	int error;
 
-	error = blob_content(content, path.c_str(), repo, tree);
+	error = blob_content(content, path, repo, tree);
 	if (error)
 		return;
 
@@ -371,6 +360,20 @@ static void parse_series(const string& series,
 	}
 }
 
+static int fill_file_oid_map(const char *root, const git_tree_entry *entry,
+			     void *payload)
+{
+	if (git_tree_entry_type(entry) == GIT_OBJ_BLOB) {
+		string path(root);
+		path += git_tree_entry_name(entry);
+
+		oid_map_t &map = *(oid_map_t*)payload;
+		map[path] = *git_tree_entry_id(entry);
+	}
+
+	return 0;
+}
+
 static int handle_revision(git_repository *repo, const char *revision,
 			   const string& outfile,
 			   results_type &results,
@@ -384,8 +387,6 @@ static int handle_revision(git_repository *repo, const char *revision,
 	string blist;
 	int error;
 
-	blob_id_cache.clear();
-
 	error = git_revparse_single(&obj, repo, revision);
 	if (error < 0)
 		goto out;
@@ -397,6 +398,12 @@ static int handle_revision(git_repository *repo, const char *revision,
 	error = git_commit_tree(&tree, commit);
 	if (error)
 		goto out_commit_free;
+
+	file_oid_map.clear();
+	error = git_tree_walk(tree, GIT_TREEWALK_PRE,
+			      fill_file_oid_map, &file_oid_map);
+	if (error)
+		goto out_free_tree;
 
 	error = blob_content(blist, "blacklist.conf", repo, tree);
 	if (!error)
