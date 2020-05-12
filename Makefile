@@ -13,7 +13,7 @@ LIBGIT2=-lgit2
 ifeq ($(BUILD_LIBGIT2), 1)
   LIBGIT2=$(STATIC_LIBGIT2)
   CXXFLAGS+=-I./libgit2/include/
-  LIBS=-lpthread -lssl -lcrypto -lz
+  LIBS=-lpthread -lssl -lcrypto -lz -lpcre
 endif
 
 ifeq ($(DEBUG), 1)
