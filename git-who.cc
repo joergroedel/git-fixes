@@ -152,10 +152,10 @@ static bool parse_options(int argc, char **argv)
 
 static std::string config_get_string_nofail(git_config *cfg, const char *name)
 {
-#if LIBGIT2_VER_MINOR > 22
-	git_config_entry *entry;
-#else
+#if LIBGIT2_VER_MAJOR == 0 && LIBGIT2_VER_MINOR < 23
 	const git_config_entry *entry;
+#else
+	git_config_entry *entry;
 #endif
 	std::string ret;
 
@@ -164,7 +164,7 @@ static std::string config_get_string_nofail(git_config *cfg, const char *name)
 
 	ret = entry->value;
 
-#if LIBGIT2_VER_MINOR > 22
+#if LIBGIT2_VER_MAJOR > 0 || LIBGIT2_VER_MINOR >= 23
 	git_config_entry_free(entry);
 #endif
 

@@ -919,7 +919,7 @@ error:
 	return err;
 }
 
-#if LIBGIT2_VER_MINOR < 23
+#if LIBGIT2_VER_MAJOR == 0 && LIBGIT2_VER_MINOR < 23
 static string config_get_string_nofail(git_config *cfg, const char *name)
 {
 	const git_config_entry *entry;
