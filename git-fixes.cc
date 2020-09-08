@@ -453,6 +453,10 @@ static int handle_commit(git_commit *commit, git_repository *repo,
 	if (!opts->no_blacklist && is_blacklisted(commit_id))
 		return 0;
 
+	/* Ignore merge and root commits */
+	if (git_commit_parentcount(commit) != 1)
+		return 0;
+
 	msg = git_commit_message(commit);
 	c.id = commit_id;
 	parse_commit_msg(c, msg);
