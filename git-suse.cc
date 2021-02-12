@@ -228,7 +228,8 @@ static void parse_patch(const string &path,
 
 		token = to_lower(line.substr(0, pos));
 
-		if (token == "git-commit" || token == "no-fix") {
+		if (token == "git-commit" || token == "no-fix" ||
+		    token == "alt-commit") {
 			string id;
 
 			pos = line.find_first_not_of(" ", pos + 1);
@@ -245,7 +246,7 @@ static void parse_patch(const string &path,
 				continue;
 
 			id = line.substr(pos, pos2 - pos);
-			if (token == "git-commit")
+			if (token == "git-commit" || token == "alt-commit")
 				commit_ids.emplace_back(id);
 			else
 				blacklist.emplace(id);
